@@ -522,9 +522,18 @@ def move_dataset_api(request: HttpRequest, dataset_id) -> JsonResponse:
         # Store old project for audit trail
         old_project = dataset.project
         
-        # Move the dataset
-        dataset.project = target_project
-        dataset.save()
+        # Move the dataset, handling potential fingerprint uniqueness conflicts gracefully
+        try:
+            dataset.project = target_project
+            dataset.save()
+        except IntegrityError:
+            # Clear fingerprint to avoid unique conflict and append source project name for provenance
+            if dataset.ingest_fingerprint:
+                dataset.ingest_fingerprint = None
+            if dataset.name and not dataset.name.endswith(f"-{old_project.name}"):
+                dataset.name = f"{dataset.name}-{old_project.name}"
+            dataset.project = target_project
+            dataset.save()
         
         # Create audit trail entries
         # Log in the source project
@@ -641,9 +650,19 @@ def delete_project_api(request: HttpRequest, project_id) -> JsonResponse:
                     ds.project = default_project
                     ds.save(update_fields=["project", "updated_at"])  # triggers project metadata updates
                 except IntegrityError:
-                    # A dataset with the same ingest_fingerprint already exists in default_project.
-                    # Keep the existing one in default and drop this duplicate being moved.
-                    ds.delete()
+                    # Conflict on (project, ingest_fingerprint). Preserve both by clearing fingerprint
+                    # and appending source project name to dataset name to indicate provenance.
+                    try:
+                        if ds.ingest_fingerprint:
+                            ds.ingest_fingerprint = None
+                        # Append suffix once
+                        if ds.name and not ds.name.endswith(f"-{project.name}"):
+                            ds.name = f"{ds.name}-{project.name}"
+                        ds.project = default_project
+                        ds.save(update_fields=["project", "updated_at", "ingest_fingerprint", "name"])  # retry
+                    except IntegrityError:
+                        # As a last resort, drop the dataset to unblock deletion
+                        ds.delete()
 
         # After moving, update metadata on both projects just in case
         default_project.update_metadata()
