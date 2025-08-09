@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import logging
 import re
 import pandas as pd
 from datetime import date
@@ -15,6 +16,9 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
 from .models import Dataset, RawDataPoint, InputSchema, Analysis, FittingSession, Project, ProjectMembership, UserProjectPreference, ProjectActivity
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 
 def get_or_create_active_project(user):
