@@ -1,0 +1,202 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}DielectricFit{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'dielectric/css/app.css' %}">
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="flex h-screen bg-slate-50">
+
+  <!-- Sidebar Navigation -->
+  <aside class="w-64 bg-surface text-secondary flex-shrink-0 p-4 border-r border-slate-200 transition-all duration-300">
+    <!-- Sidebar Header -->
+    <div id="sidebar-header" class="flex items-center justify-between mb-8 h-8 cursor-pointer" title="Toggle Sidebar">
+      <div class="flex items-center gap-2 overflow-hidden">
+        <svg id="logo-icon" class="w-6 h-6 text-accent flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 12C3 9.0929 4.10331 6.31311 5.99864 4.41919C7.89438 2.52483 10.6756 1.5 13.5 1.5C16.3244 1.5 19.1056 2.52483 21.0014 4.41919C22.8967 6.31311 24 9.0929 24 12C24 14.9071 22.8967 17.6869 21.0014 19.5808C19.1056 21.4752 16.3244 22.5 13.5 22.5C10.6756 22.5 7.89438 21.4752 5.99864 19.5808C4.10331 17.6869 3 14.9071 3 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M13.5 5.25C12.0693 5.25 10.6963 5.76026 9.69519 6.6661C8.69408 7.57193 8.13684 8.79894 8.13684 10.05C8.13684 11.3011 8.69408 12.5281 9.69519 13.4339C10.6963 14.3397 12.0693 14.85 13.5 14.85C16.3284 14.85 18.6368 12.5415 18.6368 9.75C18.6368 8.49894 18.0796 7.27193 17.0785 6.3661C16.0774 5.46026 14.7043 4.95 13.2737 4.95L13.5 5.25Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h1 class="text-xl font-bold text-primary logo-text">DielectricFit</h1>
+      </div>
+      <svg id="toggle-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-secondary hover:text-accent transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="4" stroke-width="2.5" />
+        <line x1="9" y1="3" x2="9" y2="21" stroke-width="2.5" />
+      </svg>
+    </div>
+
+    <nav class="space-y-2">
+      <a href="{% url 'dashboard' %}" class="sidebar-link {% block nav_dashboard_active %}{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}{% endblock %}">
+        <svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1" stroke-width="2"/>
+          <rect x="14" y="3" width="7" height="7" rx="1" stroke-width="2"/>
+          <rect x="3" y="14" width="7" height="7" rx="1" stroke-width="2"/>
+          <rect x="14" y="14" width="7" height="7" rx="1" stroke-width="2"/>
+        </svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="{% url 'analysis' %}" class="sidebar-link {% block nav_analysis_active %}{% if request.resolver_match.url_name == 'analysis' %}active{% endif %}{% endblock %}">
+        <svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+        </svg>
+        <span>Analysis</span>
+      </a>
+      <a href="{% url 'models' %}" class="sidebar-link {% block nav_models_active %}{% if request.resolver_match.url_name == 'models' %}active{% endif %}{% endblock %}">
+        <svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+        </svg>
+        <span>Model Library</span>
+      </a>
+      <a href="{% url 'reports' %}" class="sidebar-link {% block nav_reports_active %}{% if request.resolver_match.url_name == 'reports' %}active{% endif %}{% endblock %}">
+        <svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z"></path>
+        </svg>
+        <span>Reports</span>
+      </a>
+      <div class="border-t border-slate-200 my-4"></div>
+      <a href="{% url 'preferences' %}" class="sidebar-link {% if request.resolver_match.url_name == 'preferences' %}active{% endif %}">
+        <svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span>Preferences</span>
+      </a>
+      <a href="{% url 'profile' %}" class="sidebar-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+        <svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+        </svg>
+        <span>Profile</span>
+      </a>
+      <div class="border-t border-slate-200 my-4"></div>
+      {% if request.user.is_authenticated %}
+      <form method="post" action="{% url 'logout' %}" style="margin:0;">
+        {% csrf_token %}
+        <button type="submit" class="sidebar-link w-full text-left">
+          <svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h4a2 2 0 012 2v1" />
+          </svg>
+          <span>Logout</span>
+        </button>
+      </form>
+      {% else %}
+      <a href="{% url 'login' %}" class="sidebar-link">
+        <svg class="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2m1 4l4 4m0 0l-4 4m4-4H7" />
+        </svg>
+        <span>Login</span>
+      </a>
+      {% endif %}
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 p-4 lg:p-6 overflow-y-auto">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Alert System -->
+  <div id="alert-container" class="fixed top-4 right-4 z-50 space-y-2 w-96 pr-4">
+    <!-- Alerts will be dynamically inserted here -->
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div x-data="{ open: false, datasetId: null, datasetName: '' }" 
+       x-show="open" 
+       x-cloak
+       @delete-dataset.window="open = true; datasetId = $event.detail.id; datasetName = $event.detail.name"
+       class="fixed inset-0 z-50 overflow-y-auto"
+       style="display: none;">
+    <!-- Backdrop -->
+    <div x-show="open"
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+    <!-- Modal -->
+    <div class="flex min-h-full items-center justify-center p-4">
+      <div x-show="open"
+           x-transition:enter="ease-out duration-300"
+           x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+           x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+           x-transition:leave="ease-in duration-200"
+           x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+           x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+           @click.away="open = false"
+           class="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+        
+        <div class="sm:flex sm:items-start">
+          <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+            <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </div>
+          <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+            <h3 class="text-base font-semibold leading-6 text-gray-900">Delete Dataset</h3>
+            <div class="mt-2">
+              <p class="text-sm text-gray-500">
+                Are you sure you want to delete <strong x-text="datasetName"></strong>? This action cannot be undone.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+          <button @click="confirmDelete(datasetId); open = false"
+                  type="button"
+                  class="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto">
+            Delete
+          </button>
+          <button @click="open = false"
+                  type="button"
+                  class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert Template (hidden, used for cloning) -->
+  <template id="alert-template">
+    <div x-data="{ show: true }" 
+         x-show="show" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform translate-x-full"
+         x-transition:enter-end="opacity-100 transform translate-x-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 transform translate-x-0"
+         x-transition:leave-end="opacity-0 transform translate-x-full"
+         @click.away="show = false"
+         class="alert-box flex items-start p-4 rounded-lg shadow-lg border-l-4 bg-white w-full">
+      <div class="flex-shrink-0 alert-icon">
+        <!-- Icon will be inserted here -->
+      </div>
+      <div class="ml-3 w-0 flex-1">
+        <p class="alert-title text-sm font-semibold text-gray-900"></p>
+        <p class="alert-message mt-1 text-sm text-gray-600"></p>
+      </div>
+      <div class="ml-4 flex-shrink-0 flex">
+        <button @click="show = false" class="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
+          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <script src="{% static 'dielectric/js/app.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Analysis • DielectricFit{% endblock %}
+{% block head_extra %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <link rel="stylesheet" href="{% static 'dielectric/css/dashboard.css' %}">
+{% endblock %}
+
+{% block nav_analysis_active %}active{% endblock %}
+
+{% block content %}
+  <div id="view-analysis" class="view active">
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-primary">Analysis Workspace</h1>
+        <p class="text-secondary">Sample_PCB_01.csv</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Save Progress</button>
+        <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Export Results</button>
+      </div>
+    </div>
+
+    <div class="flex gap-2 mb-6 overflow-x-auto">
+      <div class="step completed">1. Import</div>
+      <div class="step completed">2. Diagnose</div>
+      <div class="step active">3. Preprocess</div>
+      <div class="step">4. Model</div>
+      <div class="step">5. Fit</div>
+      <div class="step">6. Validate</div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-1">
+        <div class="kpi-card">
+          <h3 class="font-semibold text-primary mb-4">Preprocessing Options</h3>
+          <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p class="text-sm font-medium text-green-800">KK Consistency Check</p>
+            <p class="text-xs text-green-600 mt-1">Data passes causality test</p>
+          </div>
+          <div class="space-y-4">
+            <div>
+              <label class="text-sm font-medium text-primary">Smoothing</label>
+              <select class="w-full mt-1 p-2 border border-slate-200 rounded-lg">
+                <option>Savitzky-Golay</option>
+                <option>Moving Average</option>
+                <option>None</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-primary">Baseline Correction</label>
+              <div class="flex items-center mt-2">
+                <input type="checkbox" class="mr-2" checked>
+                <span class="text-sm text-secondary">Apply correction</span>
+              </div>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-primary">Hook Correction (Cp)</label>
+              <input type="number" class="w-full mt-1 p-2 border border-slate-200 rounded-lg" placeholder="1e-12" value="1e-12">
+            </div>
+            <div>
+              <label class="text-sm font-medium text-primary">DC Conductivity</label>
+              <input type="number" class="w-full mt-1 p-2 border border-slate-200 rounded-lg" placeholder="Auto-detect" value="1.2e-10">
+            </div>
+          </div>
+          <button class="w-full mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Apply Preprocessing</button>
+        </div>
+      </div>
+      <div class="lg:col-span-2">
+        <div class="kpi-card">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <h4 class="text-sm font-medium text-primary mb-2">ε' vs Frequency</h4>
+              <div class="h-48"><canvas id="realPartPlot"></canvas></div>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-primary mb-2">ε'' vs Frequency</h4>
+              <div class="h-48"><canvas id="imagPartPlot"></canvas></div>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-primary mb-2">Cole-Cole Plot</h4>
+              <div class="h-48"><canvas id="coleColePlot"></canvas></div>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-primary mb-2">KK Residuals</h4>
+              <div class="h-48"><canvas id="kkResidualsPlot"></canvas></div>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-between mt-4">
+          <button class="px-6 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">← Previous Step</button>
+          <button class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Next Step →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'dielectric/js/analysis.js' %}"></script>
+{% endblock %}

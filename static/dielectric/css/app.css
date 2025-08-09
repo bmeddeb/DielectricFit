@@ -1,0 +1,25 @@
+body {
+  font-family: 'Inter', sans-serif;
+}
+.bg-surface { background-color: #ffffff; }
+.bg-base { background-color: #f1f5f9; }
+.text-primary { color: #1e293b; }
+.text-secondary { color: #64748b; }
+.text-accent { color: #3b82f6; }
+.border-slate-200 { border-color: #e2e8f0; }
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  color: #475569;
+  font-weight: 500;
+  transition: background-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.sidebar-link:hover, .sidebar-link.active { background-color: #eef2ff; color: #3b82f6; }
+.logo-text, .sidebar-link span { transition: opacity 0.3s, max-width 0.3s; }
+.w-20 #toggle-icon { display: none; }
+.w-20:hover #toggle-icon { display: block; }
+.w-20:hover #logo-icon { display: none; }

@@ -1,0 +1,104 @@
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f8fafc;
+}
+.bg-surface { background-color: #ffffff; }
+.bg-base { background-color: #f1f5f9; }
+.text-primary { color: #1e293b; }
+.text-secondary { color: #64748b; }
+.text-accent { color: #3b82f6; }
+.border-slate-200 { border-color: #e2e8f0; }
+
+.kpi-card {
+  background-color: #ffffff;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  transition: all 0.3s ease-in-out;
+}
+.kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  color: #475569;
+  font-weight: 500;
+  transition: background-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.sidebar-link:hover, .sidebar-link.active {
+  background-color: #eef2ff;
+  color: #3b82f6;
+}
+
+.view { display: none; }
+.view.active { display: block; }
+
+.chart-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+}
+
+/* Progress steps */
+.step {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #94a3b8;
+  background-color: #f1f5f9;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.step.active {
+  background-color: #3b82f6;
+  color: white;
+}
+.step.completed {
+  background-color: #10b981;
+  color: white;
+}
+
+/* Parameter slider styles */
+.param-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  outline: none;
+  -webkit-appearance: none;
+}
+.param-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.param-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Collapsible sidebar animations */
+.logo-text, .sidebar-link span {
+  transition: opacity 0.3s, max-width 0.3s;
+}
+.w-20 #toggle-icon { display: none; }
+.w-20:hover #toggle-icon { display: block; }
+.w-20:hover #logo-icon { display: none; }

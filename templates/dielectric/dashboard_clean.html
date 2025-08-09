@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}DielectricFit - Advanced Dielectric Analysis Platform{% endblock %}
+{% block head_extra %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <link rel="stylesheet" href="{% static 'dielectric/css/dashboard.css' %}">
+{% endblock %}
+
+{% block nav_dashboard_active %}active{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Upload Card -->
+      <div class="kpi-card">
+        <label for="quick-upload" class="flex flex-col items-center justify-center h-48 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-base hover:bg-slate-100 transition-colors">
+          <svg class="w-12 h-12 mb-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          <p class="text-lg text-secondary font-semibold mb-2">Upload CSV</p>
+          {% if active_project %}
+          <p class="text-sm text-secondary">to {{ active_project.name }}</p>
+          <p class="text-xs text-secondary mt-1">or drag & drop files here</p>
+          {% else %}
+          <p class="text-sm text-secondary">or drag & drop files here</p>
+          {% endif %}
+          <input id="quick-upload" type="file" class="hidden" accept=".csv" />
+        </label>
+      </div>
+
+      <!-- Active Project Card -->
+      {% if active_project %}
+      <div class="kpi-card">
+        <div class="h-48 p-6">
+          <div class="flex items-center justify-between h-full">
+            <div class="flex-1 pr-4 cursor-pointer" onclick="openProjectSwitcher()" title="Click to switch projects">
+              <div class="flex items-center mb-3">
+                <svg class="w-6 h-6 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+                <h3 class="font-bold text-primary text-lg truncate">{{ active_project.name }}</h3>
+              </div>
+              <p class="text-sm text-secondary mb-4 line-clamp-2">{{ active_project.description|default:"Active Project - Click to switch to another project" }}</p>
+              <div class="space-y-2">
+                <div class="flex items-center text-sm text-secondary">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z"></path>
+                  </svg>
+                  <span>{{ active_project.dataset_count }} dataset{{ active_project.dataset_count|pluralize }}</span>
+                </div>
+                <div class="flex items-center text-sm text-secondary">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"></path>
+                  </svg>
+                  <span>{{ active_project.memberships.count }} member{{ active_project.memberships.count|pluralize }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-col space-y-3">
+              <!-- Switch Project Button -->
+              <button onclick="openProjectSwitcher()" class="flex flex-col items-center p-2 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors" title="Switch Projects">
+                <svg class="w-5 h-5 text-blue-600 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path>
+                </svg>
+                <span class="text-xs text-blue-600 font-medium">Switch</span>
+              </button>
+              
+              <!-- Create New Project Button -->
+              <button onclick="createProject()" class="flex flex-col items-center p-2 bg-green-100 rounded-lg hover:bg-green-200 transition-colors" title="Create New Project">
+                <svg class="w-5 h-5 text-green-600 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                <span class="text-xs text-green-600 font-medium">Create</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <!-- No Active Project Card -->
+      <div class="kpi-card cursor-pointer hover:shadow-lg transition-all duration-200" onclick="createProject()">
+        <div class="flex flex-col items-center justify-center h-48 border-2 border-slate-300 border-dashed rounded-lg">
+          <svg class="w-12 h-12 mb-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+          </svg>
+          <p class="text-lg text-secondary font-semibold mb-2">Create Project</p>
+          <p class="text-sm text-secondary">Get started by creating your first project</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Datasets Section -->
+    {% if datasets %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+      {% for dataset in datasets|slice:":12" %}
+      <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden" onclick="openDataset('{{ dataset.id }}')">
+        <!-- Card Header -->
+        <div class="bg-gray-50 px-3 py-1.5 border-b border-gray-200">
+          <div class="flex justify-between items-center">
+            <h3 class="font-medium text-sm text-primary truncate" title="{{ dataset.name }}">
+              {{ dataset.name|slice:":-4" }}  {# Remove .csv extension #}
+            </h3>
+            <span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full whitespace-nowrap ml-2">
+              {{ dataset.row_count }}
+            </span>
+          </div>
+        </div>
+        
+        <!-- Card Body - Plot -->
+        <div class="p-2 h-24">
+          <canvas id="dataset-plot-{{ dataset.id }}" data-dataset-id="{{ dataset.id }}"></canvas>
+        </div>
+        
+        <!-- Card Footer -->
+        <div class="px-3 py-1.5 border-t border-gray-200 bg-gray-50">
+          <div class="flex justify-between items-center">
+            <p class="text-xs text-secondary">{{ dataset.created_at|date:"m/d H:i" }}</p>
+            <div class="flex gap-2">
+              <button class="text-blue-600 hover:text-blue-800 p-1" onclick="event.stopPropagation(); analyzeDataset('{{ dataset.id }}')" title="Analyze">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+              </button>
+              <button class="text-red-600 hover:text-red-800 p-1" onclick="event.stopPropagation(); deleteDataset('{{ dataset.id }}', '{{ dataset.name|slice:":-4" }}')" title="Delete">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Recent Analyses Section -->
+    {% if analyses %}
+    <h2 class="text-xl font-bold text-primary mb-4">Recent Analyses</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+      {% for analysis in analyses|slice:":12" %}
+      <div class="bg-white p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer" onclick="openAnalysis('{{ analysis.id }}')">
+        <div class="h-20 mb-2">
+          <canvas id="chart-{{ analysis.id }}"></canvas>
+        </div>
+        <div class="border-t border-slate-200 pt-2">
+          <div class="flex justify-between items-start mb-1">
+            <div class="min-w-0 flex-1">
+              <h3 class="font-medium text-sm text-primary truncate" title="{{ analysis.preprocessing_config.dataset.name }}">
+                {{ analysis.preprocessing_config.dataset.name }}
+              </h3>
+              <p class="text-xs text-secondary">{{ analysis.created_at|date:"m/d" }}</p>
+            </div>
+            {% if analysis.kk_metrics.rmse %}
+            <span class="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded-full ml-1">✓</span>
+            {% else %}
+            <span class="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full ml-1">...</span>
+            {% endif %}
+          </div>
+          <div class="text-xs text-secondary">
+            {% if analysis.kk_metrics.rmse %}
+            <p class="truncate">RMSE: {{ analysis.kk_metrics.rmse|floatformat:4 }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <!-- Placeholder cards when no analyses exist -->
+      <div class="bg-white p-3 rounded-lg shadow-sm"><div class="h-20 mb-2"><canvas id="dashChart1"></canvas></div></div>
+      <div class="bg-white p-3 rounded-lg shadow-sm"><div class="h-20 mb-2"><canvas id="dashChart2"></canvas></div></div>
+      <div class="bg-white p-3 rounded-lg shadow-sm"><div class="h-20 mb-2"><canvas id="dashChart3"></canvas></div></div>
+      {% endfor %}
+    </div>
+    {% elif not datasets %}
+    <!-- Show empty state when no data exists -->
+    <div class="text-center py-12">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z"></path>
+      </svg>
+      <h3 class="mt-2 text-sm font-medium text-gray-900">No datasets</h3>
+      <p class="mt-1 text-sm text-gray-500">Get started by uploading a CSV file.</p>
+    </div>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'dielectric/js/dashboard.js' %}?v=6"></script>
+{% endblock %}
