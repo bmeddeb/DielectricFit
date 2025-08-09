@@ -1007,7 +1007,7 @@ function confirmDeleteProject(projectId, projectName, datasetCount) {
   showConfirmModal(
     message,
     () => {
-      deleteProject(projectId, projectName);
+      deleteProject(projectId, projectName, datasetCount);
     },
     null,
     {
@@ -1019,7 +1019,7 @@ function confirmDeleteProject(projectId, projectName, datasetCount) {
   );
 }
 
-function deleteProject(projectId, projectName) {
+function deleteProject(projectId, projectName, datasetCount = 0) {
   const csrftoken = getCsrfToken();
   
   fetch(`/api/projects/${projectId}/delete/`, {
@@ -1041,11 +1041,29 @@ function deleteProject(projectId, projectName) {
   })
   .then(data => {
     if (data.ok) {
-      showAlert('Success', `Project "${projectName}" deleted successfully`, 'success');
+      const movedMsg = datasetCount > 0 ? ` and moved ${datasetCount} dataset${datasetCount !== 1 ? 's' : ''} to Default` : '';
+      showAlert('Success', `Project "${projectName}" deleted${movedMsg}`, 'success');
       const modal = document.getElementById('projectSwitcherModal');
       if (modal) {
         const item = modal.querySelector(`[data-project-id="${projectId}"]`);
         if (item) item.remove();
+        // Update Default project's dataset count in the modal, if present
+        if (datasetCount > 0) {
+          const projectRows = modal.querySelectorAll('[data-project-id]');
+          projectRows.forEach(row => {
+            const nameEl = row.querySelector('h4');
+            if (nameEl && nameEl.textContent.trim() === 'Default') {
+              const dsSpan = row.querySelector('span');
+              if (dsSpan) {
+                // Expecting text like "X datasets"; parse and increment
+                const m = dsSpan.textContent.match(/(\d+)/);
+                const current = m ? parseInt(m[1], 10) : 0;
+                const next = current + datasetCount;
+                dsSpan.textContent = `${next} dataset${next !== 1 ? 's' : ''}`;
+              }
+            }
+          });
+        }
         if (!modal.querySelector('[data-project-id]')) {
           closeProjectSwitcherModal();
         }
