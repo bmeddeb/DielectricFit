@@ -7,7 +7,7 @@ import re
 import pandas as pd
 
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Count
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -619,9 +619,7 @@ def delete_project_api(request: HttpRequest, project_id) -> JsonResponse:
         except UserProjectPreference.DoesNotExist:
             pass
         
-        # Before deleting, move datasets to user's Default project
-        from people.views import get_or_create_active_project
-        # Ensure a default project exists (owned by user); avoid using 'active' project if it's the same
+        # Before deleting, move datasets to user's Default project (in a transaction)
         default_project, _created = Project.objects.get_or_create(
             name="Default",
             created_by=request.user,
@@ -635,11 +633,17 @@ def delete_project_api(request: HttpRequest, project_id) -> JsonResponse:
             # If attempting to delete the default project, block (handled above), but double-check
             return JsonResponse({"ok": False, "error": "Cannot delete the default project"}, status=400)
 
-        # Move datasets one by one to trigger metadata updates
+        # Move datasets; handle potential fingerprint uniqueness conflicts by dropping duplicates
         datasets = Dataset.objects.filter(project=project).order_by('created_at')
-        for ds in datasets:
-            ds.project = default_project
-            ds.save(update_fields=["project", "updated_at"])  # triggers project metadata updates
+        with transaction.atomic():
+            for ds in datasets:
+                try:
+                    ds.project = default_project
+                    ds.save(update_fields=["project", "updated_at"])  # triggers project metadata updates
+                except IntegrityError:
+                    # A dataset with the same ingest_fingerprint already exists in default_project.
+                    # Keep the existing one in default and drop this duplicate being moved.
+                    ds.delete()
 
         # After moving, update metadata on both projects just in case
         default_project.update_metadata()
