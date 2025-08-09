@@ -202,6 +202,8 @@ class ProjectActivity(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
+        verbose_name = "project activity"
+        verbose_name_plural = "project activities"
         indexes = [
             models.Index(fields=["project", "created_at"], name="idx_people_act_project"),
             models.Index(fields=["user", "created_at"], name="idx_people_act_user"),
