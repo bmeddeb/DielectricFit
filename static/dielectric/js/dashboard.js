@@ -119,8 +119,181 @@ function showConfirmModal(message, onConfirm, onCancel = null, options = {}) {
   });
 }
 
+// Long press detection for title editing
+let longPressTimer = null;
+let isLongPress = false;
+
+function initializeTitleEditing() {
+  document.querySelectorAll('.editable-title').forEach(title => {
+    // Remove any existing listeners to avoid duplicates
+    title.removeEventListener('mousedown', handleMouseDown);
+    title.removeEventListener('touchstart', handleTouchStart);
+    title.removeEventListener('mouseup', handleMouseUp);
+    title.removeEventListener('touchend', handleTouchEnd);
+    title.removeEventListener('mouseleave', handleMouseLeave);
+    title.removeEventListener('touchcancel', handleTouchCancel);
+    
+    // Add event listeners
+    title.addEventListener('mousedown', handleMouseDown);
+    title.addEventListener('touchstart', handleTouchStart);
+    title.addEventListener('mouseup', handleMouseUp);
+    title.addEventListener('touchend', handleTouchEnd);
+    title.addEventListener('mouseleave', handleMouseLeave);
+    title.addEventListener('touchcancel', handleTouchCancel);
+  });
+}
+
+function handleMouseDown(e) {
+  startLongPress(e.currentTarget);
+}
+
+function handleTouchStart(e) {
+  e.preventDefault(); // Prevent default touch behavior
+  startLongPress(e.currentTarget);
+}
+
+function handleMouseUp(e) {
+  cancelLongPress();
+  if (!isLongPress) {
+    // Normal click - do nothing, let the card onclick handle it
+  }
+  isLongPress = false;
+}
+
+function handleTouchEnd(e) {
+  cancelLongPress();
+  if (!isLongPress) {
+    // Normal tap - do nothing
+  }
+  isLongPress = false;
+}
+
+function handleMouseLeave(e) {
+  cancelLongPress();
+}
+
+function handleTouchCancel(e) {
+  cancelLongPress();
+}
+
+function startLongPress(element) {
+  longPressTimer = setTimeout(() => {
+    isLongPress = true;
+    enterEditMode(element);
+  }, 500); // 500ms for long press
+}
+
+function cancelLongPress() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}
+
+function enterEditMode(titleElement) {
+  const titleText = titleElement.querySelector('.title-text');
+  const titleInput = titleElement.querySelector('.title-input');
+  
+  if (!titleText || !titleInput) return;
+  
+  // Stop event propagation to prevent card click
+  if (event) event.stopPropagation();
+  
+  // Hide text, show input
+  titleText.classList.add('hidden');
+  titleInput.classList.remove('hidden');
+  titleInput.focus();
+  titleInput.select();
+  
+  // Store original value
+  titleInput.dataset.originalValue = titleInput.value;
+}
+
+// Click handler for edit icon
+function editTitle(datasetId) {
+  const titleElement = document.querySelector(`.editable-title[data-dataset-id="${datasetId}"]`);
+  if (titleElement) {
+    enterEditMode(titleElement);
+  }
+}
+
+function cancelEditTitle(inputElement) {
+  const titleElement = inputElement.closest('.editable-title');
+  const titleText = titleElement.querySelector('.title-text');
+  
+  // Restore original value
+  inputElement.value = inputElement.dataset.originalValue || titleText.textContent;
+  
+  // Hide input, show text
+  inputElement.classList.add('hidden');
+  titleText.classList.remove('hidden');
+}
+
+function handleTitleKeydown(event, inputElement) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    saveTitle(inputElement);
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    cancelEditTitle(inputElement);
+  }
+}
+
+function saveTitle(inputElement) {
+  const titleElement = inputElement.closest('.editable-title');
+  const titleText = titleElement.querySelector('.title-text');
+  const datasetId = titleElement.dataset.datasetId;
+  const newName = inputElement.value.trim();
+  
+  if (!newName) {
+    cancelEditTitle(inputElement);
+    return;
+  }
+  
+  // Add .csv extension if not present
+  const fullName = newName.endsWith('.csv') ? newName : newName + '.csv';
+  
+  // Update via API
+  const csrftoken = getCookie('csrftoken');
+  const formData = new FormData();
+  formData.append('name', fullName);
+  
+  fetch(`/api/datasets/${datasetId}/update/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrftoken
+    },
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.ok) {
+      // Update the display
+      titleText.textContent = newName;
+      inputElement.dataset.originalValue = newName;
+      
+      // Hide input, show text
+      inputElement.classList.add('hidden');
+      titleText.classList.remove('hidden');
+      
+      showNotification('Success', `Dataset renamed to "${newName}"`, 'success');
+    } else {
+      showNotification('Error', 'Failed to update dataset name', 'error');
+      cancelEditTitle(inputElement);
+    }
+  })
+  .catch(error => {
+    console.error('Error updating dataset name:', error);
+    showNotification('Error', 'Failed to update dataset name', 'error');
+    cancelEditTitle(inputElement);
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   console.log('Dashboard script loaded');
+  
+  // Initialize title editing
+  initializeTitleEditing();
 
   // --- Upload Logic ---
   const uploadInput = document.getElementById('quick-upload');
@@ -461,21 +634,37 @@ function addDatasetCard(dataset) {
   
   // Create the new card HTML
   const cardHTML = `
-    <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden" onclick="openDataset('${dataset.id}')">
+    <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
       <!-- Card Header -->
-      <div class="bg-gray-50 px-3 py-2 border-b border-gray-200">
+      <div class="bg-gray-50 px-3 py-1.5 border-b border-gray-200">
         <div class="flex justify-between items-center">
-          <h3 class="font-medium text-sm text-primary truncate" title="${dataset.name}">
-            ${displayName}
-          </h3>
-          <span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full whitespace-nowrap ml-1">
+          <div class="flex items-center flex-1 min-w-0">
+            <h3 class="font-medium text-sm text-primary truncate editable-title mr-1" 
+                data-dataset-id="${dataset.id}"
+                data-original-name="${displayName}"
+                title="${dataset.name} (Long press or click edit icon to rename)">
+              <span class="title-text">${displayName}</span>
+              <input type="text" class="title-input hidden w-full px-1 py-0 text-sm border border-blue-300 rounded focus:border-blue-500 focus:outline-none bg-white" 
+                     value="${displayName}" 
+                     onblur="cancelEditTitle(this)"
+                     onkeydown="handleTitleKeydown(event, this)">
+            </h3>
+            <button class="edit-title-btn opacity-0 group-hover:opacity-100 hover:opacity-100 p-1 text-gray-400 hover:text-blue-600 transition-all duration-200" 
+                    onclick="event.stopPropagation(); editTitle('${dataset.id}')" 
+                    title="Rename dataset">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+              </svg>
+            </button>
+          </div>
+          <span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full whitespace-nowrap ml-2">
             ${dataset.row_count}
           </span>
         </div>
       </div>
       
       <!-- Card Body - Plot -->
-      <div class="p-2 h-24">
+      <div class="p-2 h-24 cursor-pointer" onclick="openDataset('${dataset.id}')">
         <canvas id="dataset-plot-${dataset.id}" data-dataset-id="${dataset.id}"></canvas>
       </div>
       
@@ -514,6 +703,9 @@ function addDatasetCard(dataset) {
     // Otherwise insert at the beginning
     datasetsGrid.insertBefore(newCard, firstCard);
   }
+
+  // Reinitialize title editing for the new card
+  initializeTitleEditing();
 
   // Initialize the plot for the new card
   setTimeout(() => {
