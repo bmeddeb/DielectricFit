@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Count
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from .models import Project, ProjectMembership, UserProjectPreference, ProjectActivity, ProjectVisibility
 from .forms import CustomUserCreationForm
+from dielectric.models import Dataset
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -300,15 +301,64 @@ def delete_project_api(request: HttpRequest, project_id) -> JsonResponse:
         except UserProjectPreference.DoesNotExist:
             pass
         
-        # Delete the project (this will cascade delete datasets and related data)
+        # Before deleting, move datasets to user's Default project (in a transaction)
+        default_project, _created = Project.objects.get_or_create(
+            name="Default",
+            created_by=request.user,
+            defaults={
+                "description": "Default project for your datasets",
+                "visibility": "private"
+            }
+        )
+
+        # Ensure user has owner membership on Default project
+        if _created:
+            ProjectMembership.objects.create(
+                project=default_project,
+                user=request.user,
+                role="owner"
+            )
+
+        if default_project.id == project.id:
+            # If attempting to delete the default project, block (handled above), but double-check
+            return JsonResponse({"ok": False, "error": "Cannot delete the default project"}, status=400)
+
+        # Move datasets; handle potential fingerprint uniqueness conflicts by dropping duplicates
+        datasets = Dataset.objects.filter(project=project).order_by('created_at')
+        with transaction.atomic():
+            for ds in datasets:
+                try:
+                    ds.project = default_project
+                    ds.save(update_fields=["project", "updated_at"])  # triggers project metadata updates
+                except IntegrityError:
+                    # Conflict on (project, ingest_fingerprint). Preserve both by clearing fingerprint
+                    # and appending source project name to dataset name to indicate provenance.
+                    try:
+                        if ds.ingest_fingerprint:
+                            ds.ingest_fingerprint = None
+                        # Append suffix once
+                        if ds.name and not ds.name.endswith(f"-{project.name}"):
+                            ds.name = f"{ds.name}-{project.name}"
+                        ds.project = default_project
+                        ds.save(update_fields=["project", "updated_at", "ingest_fingerprint", "name"])  # retry
+                    except IntegrityError:
+                        # As a last resort, drop the dataset to unblock deletion
+                        ds.delete()
+
+        # After moving, update metadata on both projects just in case
+        default_project.update_metadata()
+        default_project.update_activity()
         project_name = project.name
         project.delete()
-        
+
         return JsonResponse({"ok": True, "message": f"Project '{project_name}' deleted successfully"})
         
     except Project.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Project not found or you don't have permission to delete it"}, status=404)
     except Exception as e:
+        import traceback
+        logger.error(f"Error deleting project {project_id}: {str(e)}")
+        logger.error(traceback.format_exc())
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
 

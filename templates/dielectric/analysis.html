@@ -35,9 +35,14 @@
       <div class="lg:col-span-1">
         <div class="kpi-card">
           <h3 class="font-semibold text-primary mb-4">Preprocessing Options</h3>
-          <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p class="text-sm font-medium text-green-800">KK Consistency Check</p>
-            <p class="text-xs text-green-600 mt-1">Data passes causality test</p>
+          <div id="kkBadgeCard" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-medium text-green-800">KK Consistency Check</p>
+              <span id="kkBadge" class="text-xs px-2 py-0.5 rounded bg-green-600 text-white">PASS</span>
+            </div>
+            <p class="text-xs mt-1 text-green-700">
+              RMSE: <span id="kkRmse">—</span> • Max |r|: <span id="kkMaxRes">—</span>
+            </p>
           </div>
           <div class="space-y-4">
             <div>
@@ -56,8 +61,10 @@
               </div>
             </div>
             <div>
-              <label class="text-sm font-medium text-primary">Hook Correction (Cp)</label>
-              <input type="number" class="w-full mt-1 p-2 border border-slate-200 rounded-lg" placeholder="1e-12" value="1e-12">
+              <label class="text-sm font-medium text-primary flex items-center gap-1">Hook Correction (Cp)
+                <span title="Fixture capacitance Cp in farads. Subtracts Cp from measured response; auto‑estimate uses high‑frequency asymptote." class="text-slate-400 cursor-help">&#9432;</span>
+              </label>
+              <input type="number" class="w-full mt-1 p-2 border border-slate-200 rounded-lg" placeholder="1e-12 F" value="1e-12">
             </div>
             <div>
               <label class="text-sm font-medium text-primary">DC Conductivity</label>
