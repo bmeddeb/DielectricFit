@@ -286,7 +286,16 @@ def datasets_api_delete(request: HttpRequest, dataset_id) -> JsonResponse:
     allowed = (dataset.owner_id == request.user.id) or (project and project.user_can_delete_datasets(request.user))
     if not allowed:
         return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    # Keep reference to project for metadata update post-delete
+    target_project = project
     dataset.delete()
+    # Update project metadata to keep counts in sync
+    try:
+        if target_project:
+            target_project.update_metadata()
+            target_project.update_activity()
+    except Exception:
+        pass
     return JsonResponse({"ok": True})
 
 
@@ -610,10 +619,34 @@ def delete_project_api(request: HttpRequest, project_id) -> JsonResponse:
         except UserProjectPreference.DoesNotExist:
             pass
         
-        # Delete the project (this will cascade delete datasets and related data)
+        # Before deleting, move datasets to user's Default project
+        from people.views import get_or_create_active_project
+        # Ensure a default project exists (owned by user); avoid using 'active' project if it's the same
+        default_project, _created = Project.objects.get_or_create(
+            name="Default",
+            created_by=request.user,
+            defaults={
+                "description": "Default project for your datasets",
+                "visibility": "private"
+            }
+        )
+
+        if default_project.id == project.id:
+            # If attempting to delete the default project, block (handled above), but double-check
+            return JsonResponse({"ok": False, "error": "Cannot delete the default project"}, status=400)
+
+        # Move datasets one by one to trigger metadata updates
+        datasets = Dataset.objects.filter(project=project).order_by('created_at')
+        for ds in datasets:
+            ds.project = default_project
+            ds.save(update_fields=["project", "updated_at"])  # triggers project metadata updates
+
+        # After moving, update metadata on both projects just in case
+        default_project.update_metadata()
+        default_project.update_activity()
         project_name = project.name
         project.delete()
-        
+
         return JsonResponse({"ok": True, "message": f"Project '{project_name}' deleted successfully"})
         
     except Project.DoesNotExist:
