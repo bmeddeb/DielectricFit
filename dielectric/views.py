@@ -15,52 +15,13 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
-from .models import Dataset, RawDataPoint, InputSchema, Analysis, FittingSession, Project, ProjectMembership, UserProjectPreference, ProjectActivity
+from .models import Dataset, RawDataPoint, InputSchema, Analysis, FittingSession
+from people.models import Project, ProjectMembership, UserProjectPreference, ProjectActivity, ProjectVisibility
+from people.views import get_or_create_active_project
 
 # Set up logger
 logger = logging.getLogger(__name__)
 
-
-def get_or_create_active_project(user):
-    """Get user's active project or create a default one"""
-    if not user.is_authenticated:
-        return None
-        
-    # Get user's preference
-    preference, created = UserProjectPreference.objects.get_or_create(user=user)
-    
-    if preference.active_project and preference.active_project.user_can_view(user):
-        return preference.active_project
-    
-    # Find user's projects
-    user_projects = Project.objects.filter(memberships__user=user).order_by('-last_activity_at')
-    
-    if user_projects.exists():
-        # Set first project as active
-        preference.active_project = user_projects.first()
-        preference.save()
-        return preference.active_project
-    
-    # Create default project if user has none
-    default_project = Project.objects.create(
-        name="Default",
-        description="Default project for your datasets",
-        visibility="private",
-        created_by=user
-    )
-    
-    # Create owner membership
-    ProjectMembership.objects.create(
-        project=default_project,
-        user=user,
-        role="owner"
-    )
-    
-    # Set as active
-    preference.active_project = default_project
-    preference.save()
-    
-    return default_project
 
 
 def dashboard(request: HttpRequest) -> HttpResponse:
@@ -124,28 +85,28 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         # For anonymous users, show public projects only
         active_project = None
         user_projects = Project.objects.filter(
-            visibility=Project.ProjectVisibility.PUBLIC
+            visibility=ProjectVisibility.PUBLIC
         ).order_by('-last_activity_at')[:10]
         
         datasets = Dataset.objects.filter(
-            project__visibility=Project.ProjectVisibility.PUBLIC
+            project__visibility=ProjectVisibility.PUBLIC
         ).select_related('project', 'owner').order_by('-created_at')[:24]
         
         analyses = Analysis.objects.filter(
-            preprocessing_config__dataset__project__visibility=Project.ProjectVisibility.PUBLIC
+            preprocessing_config__dataset__project__visibility=ProjectVisibility.PUBLIC
         ).select_related(
             'preprocessing_config__dataset__project', 
             'preprocessing_config__dataset__owner'
         ).order_by('-created_at')[:12]
         
         total_datasets = Dataset.objects.filter(
-            project__visibility=Project.ProjectVisibility.PUBLIC
+            project__visibility=ProjectVisibility.PUBLIC
         ).count()
         total_analyses = Analysis.objects.filter(
-            preprocessing_config__dataset__project__visibility=Project.ProjectVisibility.PUBLIC
+            preprocessing_config__dataset__project__visibility=ProjectVisibility.PUBLIC
         ).count()
         today_count = Dataset.objects.filter(
-            project__visibility=Project.ProjectVisibility.PUBLIC,
+            project__visibility=ProjectVisibility.PUBLIC,
             created_at__date=timezone.now().date()
         ).count()
     
@@ -172,11 +133,6 @@ def reports(request: HttpRequest) -> HttpResponse:
 
 def preferences(request: HttpRequest) -> HttpResponse:
     return render(request, "dielectric/preferences.html")
-
-
-@login_required
-def user_profile(request: HttpRequest) -> HttpResponse:
-    return render(request, "dielectric/profile.html")
 
 
 # --- API Views ---
@@ -645,4 +601,152 @@ def delete_project_api(request: HttpRequest, project_id) -> JsonResponse:
     except Project.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Project not found or you don't have permission to delete it"}, status=404)
     except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_project_api(request: HttpRequest, project_id) -> JsonResponse:
+    """Update project details"""
+    import json
+    
+    try:
+        data = json.loads(request.body)
+        
+        # Get project and verify user is owner or admin
+        project = get_object_or_404(
+            Project, 
+            id=project_id, 
+            memberships__user=request.user,
+            memberships__role__in=["owner", "admin"]
+        )
+        
+        # Update fields
+        if 'name' in data:
+            project.name = data['name'].strip()
+        if 'description' in data:
+            project.description = data['description'].strip()
+        if 'visibility' in data and data['visibility'] in ['private', 'internal', 'public']:
+            project.visibility = data['visibility']
+        
+        project.save()
+        
+        return JsonResponse({
+            "ok": True,
+            "message": "Project updated successfully",
+            "project": {
+                "id": str(project.id),
+                "name": project.name,
+                "description": project.description,
+                "visibility": project.visibility
+            }
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+    except Project.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Project not found or access denied"}, status=404)
+    except Exception as e:
+        logger.error(f"Error updating project: {e}")
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_profile_api(request: HttpRequest) -> JsonResponse:
+    """Update user profile information"""
+    import json
+    
+    try:
+        data = json.loads(request.body)
+        user = request.user
+        
+        # Update user fields
+        if 'first_name' in data:
+            user.first_name = data['first_name'].strip()
+        if 'last_name' in data:
+            user.last_name = data['last_name'].strip()
+        if 'email' in data:
+            # Basic email validation
+            email = data['email'].strip()
+            if '@' in email and '.' in email:
+                user.email = email
+            else:
+                return JsonResponse({"ok": False, "error": "Invalid email format"}, status=400)
+        
+        user.save()
+        
+        # Handle additional profile fields (phone, timezone) if we have a profile model
+        # For now, we'll just return success
+        
+        return JsonResponse({
+            "ok": True,
+            "message": "Profile updated successfully"
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+    except Exception as e:
+        logger.error(f"Error updating profile: {e}")
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def profile_projects_api(request: HttpRequest) -> JsonResponse:
+    """Get all projects with datasets for profile page"""
+    try:
+        # Get all user's projects with their datasets
+        projects = Project.objects.filter(
+            memberships__user=request.user
+        ).prefetch_related(
+            'datasets', 
+            'memberships'
+        ).annotate(
+            total_datasets=Count('datasets', distinct=True),
+            total_members=Count('memberships', distinct=True)
+        ).order_by('-created_at')
+        
+        projects_data = []
+        for project in projects:
+            # Get active project info
+            active_project = None
+            try:
+                user_pref = UserProjectPreference.objects.get(user=request.user)
+                active_project = user_pref.active_project
+            except UserProjectPreference.DoesNotExist:
+                pass
+            
+            # Get recent datasets
+            recent_datasets = project.datasets.all().order_by('-created_at')[:10]
+            datasets_data = []
+            
+            for dataset in recent_datasets:
+                datasets_data.append({
+                    "id": str(dataset.id),
+                    "name": dataset.name,
+                    "created_at": dataset.created_at.strftime("%b %d, %Y"),
+                    "row_count": dataset.row_count,
+                    "description": dataset.description
+                })
+            
+            projects_data.append({
+                "id": str(project.id),
+                "name": project.name,
+                "description": project.description,
+                "visibility": project.visibility,
+                "created_at": project.created_at.strftime("%b %d, %Y"),
+                "dataset_count": project.total_datasets,
+                "member_count": project.total_members,
+                "is_active": active_project and active_project.id == project.id,
+                "datasets": datasets_data
+            })
+        
+        return JsonResponse({
+            "ok": True,
+            "projects": projects_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting profile projects: {e}")
         return JsonResponse({"ok": False, "error": str(e)}, status=500)

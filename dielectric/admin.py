@@ -1,8 +1,7 @@
 from django.contrib import admin
 
-from .models import (
-    Dataset, RawDataPoint, Project, ProjectMembership, ProjectActivity
-)
+from .models import Dataset, RawDataPoint
+from people.models import Project, ProjectMembership, ProjectActivity
 
 
 class RawDataPointInline(admin.TabularInline):
