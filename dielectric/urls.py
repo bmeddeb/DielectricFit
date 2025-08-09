@@ -18,6 +18,7 @@ urlpatterns = [
     path("api/datasets/<uuid:dataset_id>/update/", views.datasets_api_update, name="api_datasets_update"),
     path("api/datasets/<uuid:dataset_id>/", views.datasets_api_delete, name="api_datasets_delete"),
     path("api/datasets/<uuid:dataset_id>/data/", views.dataset_data_api, name="api_dataset_data"),
+    path("api/datasets/<uuid:dataset_id>/move/", views.move_dataset_api, name="api_move_dataset"),
     
     # Project API endpoints
     path("api/projects/", views.user_projects_api, name="api_user_projects"),

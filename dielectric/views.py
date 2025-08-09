@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
-from .models import Dataset, RawDataPoint, InputSchema, Analysis, FittingSession, Project, ProjectMembership, UserProjectPreference
+from .models import Dataset, RawDataPoint, InputSchema, Analysis, FittingSession, Project, ProjectMembership, UserProjectPreference, ProjectActivity
 
 
 def get_or_create_active_project(user):
@@ -505,6 +505,83 @@ def create_project_api(request: HttpRequest) -> JsonResponse:
     except json.JSONDecodeError:
         return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
     except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def move_dataset_api(request: HttpRequest, dataset_id) -> JsonResponse:
+    """Move a dataset to a different project"""
+    import json
+    
+    try:
+        # Parse request body
+        data = json.loads(request.body)
+        target_project_id = data.get("target_project_id")
+        
+        if not target_project_id:
+            return JsonResponse({"ok": False, "error": "Target project ID required"}, status=400)
+        
+        # Get the dataset and verify ownership
+        dataset = get_object_or_404(Dataset, id=dataset_id, owner=request.user)
+        
+        # Get the target project and verify membership
+        target_project = get_object_or_404(
+            Project,
+            id=target_project_id,
+            memberships__user=request.user
+        )
+        
+        # Store old project for audit trail
+        old_project = dataset.project
+        
+        # Move the dataset
+        dataset.project = target_project
+        dataset.save()
+        
+        # Create audit trail entries
+        # Log in the source project
+        ProjectActivity.objects.create(
+            project=old_project,
+            user=request.user,
+            action="dataset_move_out",
+            description=f"Moved dataset '{dataset.name}' to project '{target_project.name}'",
+            metadata={
+                "dataset_id": str(dataset.id),
+                "dataset_name": dataset.name,
+                "target_project_id": str(target_project.id),
+                "target_project_name": target_project.name
+            }
+        )
+        
+        # Log in the target project
+        ProjectActivity.objects.create(
+            project=target_project,
+            user=request.user,
+            action="dataset_move_in",
+            description=f"Received dataset '{dataset.name}' from project '{old_project.name}'",
+            metadata={
+                "dataset_id": str(dataset.id),
+                "dataset_name": dataset.name,
+                "source_project_id": str(old_project.id),
+                "source_project_name": old_project.name
+            }
+        )
+        
+        logger.info(f"User {request.user.username} moved dataset {dataset.name} from project {old_project.name} to {target_project.name}")
+        
+        return JsonResponse({
+            "ok": True,
+            "message": f"Dataset moved to {target_project.name}",
+            "dataset_id": str(dataset.id),
+            "new_project_id": str(target_project.id),
+            "new_project_name": target_project.name
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+    except Exception as e:
+        logger.error(f"Error moving dataset: {e}")
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
 

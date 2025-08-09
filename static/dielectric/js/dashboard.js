@@ -1,7 +1,126 @@
+// Notification System
+function showNotification(title, message, type = 'info') {
+  const container = document.getElementById('alert-container');
+  if (!container) return;
+  
+  const icons = {
+    success: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+    error: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+    warning: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>',
+    info: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
+  };
+  
+  const colors = {
+    success: 'bg-green-50 text-green-800 border-green-200',
+    error: 'bg-red-50 text-red-800 border-red-200',
+    warning: 'bg-yellow-50 text-yellow-800 border-yellow-200',
+    info: 'bg-blue-50 text-blue-800 border-blue-200'
+  };
+  
+  const iconColors = {
+    success: 'text-green-400',
+    error: 'text-red-400',
+    warning: 'text-yellow-400',
+    info: 'text-blue-400'
+  };
+  
+  const notificationId = 'notification-' + Date.now();
+  const notification = document.createElement('div');
+  notification.id = notificationId;
+  notification.className = `flex items-start p-4 mb-2 border rounded-lg shadow-sm ${colors[type]} transition-all duration-300 transform translate-x-0`;
+  notification.innerHTML = `
+    <svg class="w-5 h-5 mr-3 mt-0.5 flex-shrink-0 ${iconColors[type]}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      ${icons[type]}
+    </svg>
+    <div class="flex-1">
+      <p class="font-medium">${title}</p>
+      ${message ? `<p class="text-sm mt-1 opacity-90">${message}</p>` : ''}
+    </div>
+    <button onclick="dismissNotification('${notificationId}')" class="ml-3 flex-shrink-0 opacity-70 hover:opacity-100">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    </button>
+  `;
+  
+  container.appendChild(notification);
+  
+  // Auto-dismiss after 5 seconds
+  setTimeout(() => dismissNotification(notificationId), 5000);
+}
+
+function dismissNotification(notificationId) {
+  const notification = document.getElementById(notificationId);
+  if (notification) {
+    notification.style.transform = 'translateX(120%)';
+    setTimeout(() => notification.remove(), 300);
+  }
+}
+
+// Backward compatibility - redirect showAlert to showNotification
+function showAlert(title, message, type = 'info') {
+  showNotification(title, message, type);
+}
+
+// Confirmation Modal System
+function showConfirmModal(message, onConfirm, onCancel = null, options = {}) {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+  
+  const title = options.title || 'Confirm Action';
+  const confirmText = options.confirmText || 'Confirm';
+  const cancelText = options.cancelText || 'Cancel';
+  const confirmStyle = options.dangerous ? 
+    'bg-red-600 text-white hover:bg-red-700' : 
+    'bg-blue-600 text-white hover:bg-blue-700';
+  
+  modal.innerHTML = `
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+      <div class="mt-3">
+        <div class="flex items-center mb-4">
+          <svg class="w-6 h-6 mr-2 ${options.dangerous ? 'text-red-500' : 'text-yellow-500'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+          <h3 class="text-lg font-medium text-gray-900">${title}</h3>
+        </div>
+        <p class="text-sm text-gray-600 mb-4">${message}</p>
+        <div class="flex justify-end space-x-3">
+          <button id="modalCancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+            ${cancelText}
+          </button>
+          <button id="modalConfirm" class="px-4 py-2 ${confirmStyle} rounded-md transition-colors">
+            ${confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  const confirmBtn = modal.querySelector('#modalConfirm');
+  const cancelBtn = modal.querySelector('#modalCancel');
+  
+  confirmBtn.addEventListener('click', () => {
+    modal.remove();
+    if (onConfirm) onConfirm();
+  });
+  
+  cancelBtn.addEventListener('click', () => {
+    modal.remove();
+    if (onCancel) onCancel();
+  });
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+      if (onCancel) onCancel();
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   console.log('Dashboard script loaded');
-
-  // Alert system is now available globally via window.showAlert from app.js
 
   // --- Upload Logic ---
   const uploadInput = document.getElementById('quick-upload');
@@ -601,6 +720,154 @@ function switchToProject(projectId, projectName) {
   });
 }
 
+// Dataset moving functions
+function moveDataset(datasetId, datasetName) {
+  // Fetch available projects for moving
+  fetch('/api/projects/', {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'same-origin'
+  })
+    .then(response => response.json())
+    .then(data => {
+      if (data.ok !== false && data.projects) {
+        // Filter out the current active project
+        const availableProjects = data.projects.filter(p => !p.is_active);
+        if (availableProjects.length === 0) {
+          showAlert('Info', 'No other projects available to move to', 'info');
+          return;
+        }
+        showMoveDatasetModal(datasetId, datasetName, availableProjects);
+      } else {
+        showAlert('Error', 'Failed to load projects', 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching projects:', error);
+      showAlert('Error', 'Failed to load projects', 'error');
+    });
+}
+
+function showMoveDatasetModal(datasetId, datasetName, projects) {
+  const modalHTML = `
+    <div id="moveDatasetModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onclick="closeMoveDatasetModal(event)">
+      <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-lg shadow-lg rounded-md bg-white" onclick="event.stopPropagation()">
+        <div class="mt-3">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900">Move Dataset to Project</h3>
+            <button class="text-gray-400 hover:text-gray-600" onclick="closeMoveDatasetModal()">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+          
+          <p class="text-sm text-gray-600 mb-4">
+            Select a project to move <strong>${datasetName}</strong> to:
+          </p>
+          
+          <div class="max-h-64 overflow-y-auto space-y-2">
+            ${projects.map(project => {
+              const projectNameEscaped = project.name.replace(/'/g, "\\'");
+              return `
+                <div class="p-3 border rounded-lg hover:bg-gray-50 transition-colors border-gray-200 cursor-pointer" 
+                     onclick="confirmMoveDataset('${datasetId}', '${datasetName.replace(/'/g, "\\'")}', '${project.id}', '${projectNameEscaped}')">
+                  <div class="flex justify-between items-center">
+                    <div>
+                      <h4 class="font-medium text-gray-900">${project.name}</h4>
+                      ${project.description ? `<p class="text-sm text-gray-600 mt-1">${project.description}</p>` : ''}
+                      <div class="flex items-center text-xs text-gray-500 mt-2 space-x-4">
+                        <span>${project.dataset_count} datasets</span>
+                        <span>${project.member_count} member${project.member_count !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          
+          <div class="mt-4 pt-4 border-t border-gray-200">
+            <button class="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors" onclick="closeMoveDatasetModal()">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Remove existing modal if present
+  const existingModal = document.getElementById('moveDatasetModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+  
+  // Add modal to body
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function closeMoveDatasetModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById('moveDatasetModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+function confirmMoveDataset(datasetId, datasetName, targetProjectId, targetProjectName) {
+  showConfirmModal(
+    `Move "${datasetName}" to project "${targetProjectName}"?`,
+    () => {
+      // Proceed with the move
+      moveDatasetToProject(datasetId, datasetName, targetProjectId, targetProjectName);
+    },
+    null,
+    {
+      title: 'Move Dataset',
+      confirmText: 'Move',
+      cancelText: 'Cancel'
+    }
+  );
+}
+
+function moveDatasetToProject(datasetId, datasetName, targetProjectId, targetProjectName) {
+  
+  const csrftoken = getCookie('csrftoken');
+  
+  fetch(`/api/datasets/${datasetId}/move/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrftoken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ target_project_id: targetProjectId })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.ok) {
+      showAlert('Success', `Moved "${datasetName}" to "${targetProjectName}"`, 'success');
+      closeMoveDatasetModal();
+      // Remove the dataset card from the page
+      const datasetCard = document.querySelector(`[onclick*="${datasetId}"]`);
+      if (datasetCard && datasetCard.closest('.bg-white')) {
+        datasetCard.closest('.bg-white').remove();
+      }
+    } else {
+      showAlert('Error', data.error || 'Failed to move dataset', 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error moving dataset:', error);
+    showAlert('Error', 'Failed to move dataset', 'error');
+  });
+}
+
 function closeProjectSwitcherModal(event) {
   if (event && event.target.id !== 'projectSwitcherModal') {
     return;
@@ -726,42 +993,19 @@ function confirmDeleteProject(projectId, projectName, datasetCount) {
     ? `Are you sure you want to delete project "${projectName}"? This will also delete ${datasetCount} dataset${datasetCount !== 1 ? 's' : ''} within this project. This action cannot be undone.`
     : `Are you sure you want to delete project "${projectName}"? This action cannot be undone.`;
     
-  const confirmHTML = `
-    <div id="deleteProjectModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-md shadow-lg rounded-md bg-white">
-        <div class="mt-3">
-          <div class="flex items-center mb-4">
-            <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-              <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z"></path>
-              </svg>
-            </div>
-          </div>
-          <div class="text-center">
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Delete Project</h3>
-            <p class="text-sm text-gray-600 mb-6">${message}</p>
-            <div class="flex justify-center space-x-3">
-              <button class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors" onclick="closeDeleteProjectModal()">
-                Cancel
-              </button>
-              <button class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors" onclick="deleteProject('${projectId}', '${projectName}')">
-                Delete Project
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  document.body.insertAdjacentHTML('beforeend', confirmHTML);
-}
-
-function closeDeleteProjectModal() {
-  const modal = document.getElementById('deleteProjectModal');
-  if (modal) {
-    modal.remove();
-  }
+  showConfirmModal(
+    message,
+    () => {
+      deleteProject(projectId, projectName);
+    },
+    null,
+    {
+      title: 'Delete Project',
+      confirmText: 'Delete Project',
+      cancelText: 'Cancel',
+      dangerous: true
+    }
+  );
 }
 
 function deleteProject(projectId, projectName) {
