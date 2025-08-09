@@ -646,7 +646,7 @@ function showProjectSwitcherModal(projects) {
               const projectDescriptionEscaped = project.description ? project.description.replace(/'/g, "\\'") : '';
               
               return `
-                <div class="p-3 border rounded-lg hover:bg-gray-50 transition-colors ${project.is_active ? 'bg-blue-50 border-blue-200' : 'border-gray-200'}">
+                <div class="p-3 border rounded-lg hover:bg-gray-50 transition-colors ${project.is_active ? 'bg-blue-50 border-blue-200' : 'border-gray-200'}" data-project-id="${project.id}">
                   <div class="flex justify-between items-start">
                     <div class="flex-1 cursor-pointer" onclick="switchToProject('${project.id}', '${projectNameEscaped}')">
                       <div class="flex items-center">
@@ -849,7 +849,7 @@ function confirmMoveDataset(datasetId, datasetName, targetProjectId, targetProje
 
 function moveDatasetToProject(datasetId, datasetName, targetProjectId, targetProjectName) {
   
-  const csrftoken = getCookie('csrftoken');
+  const csrftoken = getCsrfToken();
   
   fetch(`/api/datasets/${datasetId}/move/`, {
     method: 'POST',
@@ -968,7 +968,7 @@ function submitCreateProject(event) {
   event.preventDefault();
   const form = event.target;
   const formData = new FormData(form);
-  const csrftoken = getCookie('csrftoken');
+  const csrftoken = getCsrfToken();
   
   fetch('/api/projects/create/', {
     method: 'POST',
@@ -1001,8 +1001,8 @@ function submitCreateProject(event) {
 
 function confirmDeleteProject(projectId, projectName, datasetCount) {
   const message = datasetCount > 0 
-    ? `Are you sure you want to delete project "${projectName}"? This will also delete ${datasetCount} dataset${datasetCount !== 1 ? 's' : ''} within this project. This action cannot be undone.`
-    : `Are you sure you want to delete project "${projectName}"? This action cannot be undone.`;
+    ? `Delete project "${projectName}"? Its ${datasetCount} dataset${datasetCount !== 1 ? 's' : ''} will be moved to your Default project.`
+    : `Delete project "${projectName}"? It will be removed.`;
     
   showConfirmModal(
     message,
@@ -1020,7 +1020,7 @@ function confirmDeleteProject(projectId, projectName, datasetCount) {
 }
 
 function deleteProject(projectId, projectName) {
-  const csrftoken = getCookie('csrftoken');
+  const csrftoken = getCsrfToken();
   
   fetch(`/api/projects/${projectId}/delete/`, {
     method: 'DELETE',
@@ -1042,10 +1042,14 @@ function deleteProject(projectId, projectName) {
   .then(data => {
     if (data.ok) {
       showAlert('Success', `Project "${projectName}" deleted successfully`, 'success');
-      closeDeleteProjectModal();
-      closeProjectSwitcherModal();
-      // Reload page to reflect changes
-      setTimeout(() => location.reload(), 1000);
+      const modal = document.getElementById('projectSwitcherModal');
+      if (modal) {
+        const item = modal.querySelector(`[data-project-id="${projectId}"]`);
+        if (item) item.remove();
+        if (!modal.querySelector('[data-project-id]')) {
+          closeProjectSwitcherModal();
+        }
+      }
     } else {
       showAlert('Error', data.error || 'Failed to delete project', 'error');
     }
