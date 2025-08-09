@@ -40,10 +40,18 @@ def get_or_create_active_project(user):
     # Get user's preference
     preference, created = UserProjectPreference.objects.get_or_create(user=user)
     
-    if preference.active_project and preference.active_project.user_can_view(user):
-        return preference.active_project
+    # Check if current active project is still valid
+    if preference.active_project:
+        try:
+            # Verify the project still exists and user has access
+            if preference.active_project.user_can_view(user):
+                return preference.active_project
+        except Project.DoesNotExist:
+            # Project was deleted, clear the preference
+            preference.active_project = None
+            preference.save()
     
-    # Find user's projects
+    # Find user's projects (refresh the list)
     user_projects = Project.objects.filter(memberships__user=user).order_by('-last_activity_at')
     
     if user_projects.exists():
@@ -52,20 +60,28 @@ def get_or_create_active_project(user):
         preference.save()
         return preference.active_project
     
-    # Create default project if user has none
-    default_project = Project.objects.create(
+    # No projects found - get or create a Default project
+    logger.info(f"Getting or creating Default project for user {user.username}")
+    default_project, created = Project.objects.get_or_create(
         name="Default",
-        description="Default project for your datasets",
-        visibility="private",
-        created_by=user
+        created_by=user,
+        defaults={
+            "description": "Default project for your datasets",
+            "visibility": "private"
+        }
     )
     
-    # Create owner membership
-    ProjectMembership.objects.create(
+    # Ensure user has owner membership (in case project existed but membership didn't)
+    membership, membership_created = ProjectMembership.objects.get_or_create(
         project=default_project,
         user=user,
-        role="owner"
+        defaults={"role": "owner"}
     )
+    
+    if created:
+        logger.info(f"Created new Default project for user {user.username}")
+    elif membership_created:
+        logger.info(f"Added missing membership to existing Default project for user {user.username}")
     
     # Set as active
     preference.active_project = default_project

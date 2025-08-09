@@ -32,8 +32,16 @@ function deleteDataset(datasetId, datasetName) {
           // Remove the dataset card from the UI
           const datasetCard = document.querySelector(`[data-dataset-id="${datasetId}"]`);
           if (datasetCard) {
-            datasetCard.remove();
+            // Check if this is the whole card or just a part of it
+            const wholeCard = datasetCard.closest('.bg-white.rounded-lg') || datasetCard;
+            wholeCard.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+            wholeCard.style.opacity = '0';
+            wholeCard.style.transform = 'scale(0.95)';
+            setTimeout(() => wholeCard.remove(), 500);
           }
+          // Update project dataset count
+          updateProjectDatasetCount();
+          
           // Refresh the page or update counters
           if (typeof updateDashboardStats === 'function') {
             updateDashboardStats();
@@ -134,7 +142,10 @@ async function moveDataset(datasetId, targetProjectId) {
       const datasetCard = document.querySelector(`[data-dataset-id="${datasetId}"]`);
       if (datasetCard) {
         datasetCard.style.opacity = '0.5';
-        setTimeout(() => datasetCard.remove(), 1000);
+        setTimeout(() => {
+          datasetCard.remove();
+          updateProjectDatasetCount();
+        }, 1000);
       }
     } else {
       showNotification('Error', result.error || 'Failed to move dataset', 'error');
@@ -288,10 +299,22 @@ function editTitle(datasetId) {
   }
 }
 
+// Helper function to update project dataset count
+function updateProjectDatasetCount() {
+  const countElement = document.getElementById('project-dataset-count');
+  if (countElement) {
+    // Count visible dataset cards on the page (only root card divs, not child elements)
+    const visibleDatasets = document.querySelectorAll('.bg-white.rounded-lg[data-dataset-id]').length;
+    const countText = visibleDatasets === 1 ? '1 dataset' : `${visibleDatasets} datasets`;
+    countElement.textContent = countText;
+  }
+}
+
 // Export for module systems if available
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     openDataset, analyzeDataset, shareDataset, downloadDataset,
-    deleteDataset, moveDatasetToProject, initializeTitleEditing, editTitle
+    deleteDataset, moveDatasetToProject, initializeTitleEditing, editTitle,
+    updateProjectDatasetCount
   };
 }

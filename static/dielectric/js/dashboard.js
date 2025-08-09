@@ -119,176 +119,6 @@ function showConfirmModal(message, onConfirm, onCancel = null, options = {}) {
   });
 }
 
-// Long press detection for title editing
-let longPressTimer = null;
-let isLongPress = false;
-
-function initializeTitleEditing() {
-  document.querySelectorAll('.editable-title').forEach(title => {
-    // Remove any existing listeners to avoid duplicates
-    title.removeEventListener('mousedown', handleMouseDown);
-    title.removeEventListener('touchstart', handleTouchStart);
-    title.removeEventListener('mouseup', handleMouseUp);
-    title.removeEventListener('touchend', handleTouchEnd);
-    title.removeEventListener('mouseleave', handleMouseLeave);
-    title.removeEventListener('touchcancel', handleTouchCancel);
-    
-    // Add event listeners
-    title.addEventListener('mousedown', handleMouseDown);
-    title.addEventListener('touchstart', handleTouchStart);
-    title.addEventListener('mouseup', handleMouseUp);
-    title.addEventListener('touchend', handleTouchEnd);
-    title.addEventListener('mouseleave', handleMouseLeave);
-    title.addEventListener('touchcancel', handleTouchCancel);
-  });
-}
-
-function handleMouseDown(e) {
-  startLongPress(e.currentTarget);
-}
-
-function handleTouchStart(e) {
-  e.preventDefault(); // Prevent default touch behavior
-  startLongPress(e.currentTarget);
-}
-
-function handleMouseUp(e) {
-  cancelLongPress();
-  if (!isLongPress) {
-    // Normal click - do nothing, let the card onclick handle it
-  }
-  isLongPress = false;
-}
-
-function handleTouchEnd(e) {
-  cancelLongPress();
-  if (!isLongPress) {
-    // Normal tap - do nothing
-  }
-  isLongPress = false;
-}
-
-function handleMouseLeave(e) {
-  cancelLongPress();
-}
-
-function handleTouchCancel(e) {
-  cancelLongPress();
-}
-
-function startLongPress(element) {
-  longPressTimer = setTimeout(() => {
-    isLongPress = true;
-    enterEditMode(element);
-  }, 500); // 500ms for long press
-}
-
-function cancelLongPress() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
-}
-
-function enterEditMode(titleElement) {
-  const titleText = titleElement.querySelector('.title-text');
-  const titleInput = titleElement.querySelector('.title-input');
-  
-  if (!titleText || !titleInput) return;
-  
-  // Stop event propagation to prevent card click
-  if (event) event.stopPropagation();
-  
-  // Hide text, show input
-  titleText.classList.add('hidden');
-  titleInput.classList.remove('hidden');
-  titleInput.focus();
-  titleInput.select();
-  
-  // Store original value
-  titleInput.dataset.originalValue = titleInput.value;
-}
-
-// Click handler for edit icon
-function editTitle(datasetId) {
-  const titleElement = document.querySelector(`.editable-title[data-dataset-id="${datasetId}"]`);
-  if (titleElement) {
-    enterEditMode(titleElement);
-  }
-}
-
-function cancelEditTitle(inputElement) {
-  const titleElement = inputElement.closest('.editable-title');
-  const titleText = titleElement.querySelector('.title-text');
-  
-  // Restore original value
-  inputElement.value = inputElement.dataset.originalValue || titleText.textContent;
-  
-  // Hide input, show text
-  inputElement.classList.add('hidden');
-  titleText.classList.remove('hidden');
-}
-
-function handleTitleKeydown(event, inputElement) {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    saveTitle(inputElement);
-  } else if (event.key === 'Escape') {
-    event.preventDefault();
-    cancelEditTitle(inputElement);
-  }
-}
-
-function saveTitle(inputElement) {
-  const titleElement = inputElement.closest('.editable-title');
-  const titleText = titleElement.querySelector('.title-text');
-  const datasetId = titleElement.dataset.datasetId;
-  const newName = inputElement.value.trim();
-  
-  if (!newName) {
-    cancelEditTitle(inputElement);
-    return;
-  }
-  
-  // Add .csv extension if not present
-  const fullName = newName.endsWith('.csv') ? newName : newName + '.csv';
-  
-  // Update via API
-  const csrftoken = getCookie('csrftoken');
-  const formData = new FormData();
-  formData.append('name', fullName);
-  
-  fetch(`/api/datasets/${datasetId}/update/`, {
-    method: 'POST',
-    headers: {
-      'X-CSRFToken': csrftoken
-    },
-    body: formData
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.ok) {
-      // Update the display
-      titleText.textContent = newName;
-      inputElement.dataset.originalValue = newName;
-      
-      // Hide input, show text
-      inputElement.classList.add('hidden');
-      titleText.classList.remove('hidden');
-      
-      showNotification('Success', `Dataset renamed to "${newName}"`, 'success');
-    } else {
-      showNotification('Error', 'Failed to update dataset name', 'error');
-      cancelEditTitle(inputElement);
-    }
-  })
-  .catch(error => {
-    console.error('Error updating dataset name:', error);
-    showNotification('Error', 'Failed to update dataset name', 'error');
-    cancelEditTitle(inputElement);
-  });
-}
-
 document.addEventListener('DOMContentLoaded', function () {
   console.log('Dashboard script loaded');
   
@@ -300,53 +130,90 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!uploadInput) return;
   const uploadLabel = uploadInput.parentElement;
 
-  const handleFileSelect = (file) => {
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      showAlert('Invalid File', 'Please select a valid CSV file.', 'error');
+  const handleMultipleFileSelect = (files) => {
+    if (!files || files.length === 0) return;
+    
+    // Validate all files first
+    const invalidFiles = [];
+    const validFiles = [];
+    
+    Array.from(files).forEach(file => {
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        invalidFiles.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    });
+    
+    if (invalidFiles.length > 0) {
+      showNotification('Invalid Files', `Please select only CSV files. Invalid: ${invalidFiles.join(', ')}`, 'error');
+      if (validFiles.length === 0) return;
+    }
+    
+    if (validFiles.length === 0) return;
+    
+    // Show upload progress
+    updateUploadProgress(0, validFiles.length);
+    
+    // Upload files sequentially to avoid overwhelming the server
+    uploadFilesSequentially(validFiles, 0);
+  };
+  
+  const uploadFilesSequentially = async (files, currentIndex) => {
+    if (currentIndex >= files.length) {
+      resetUploadLabel();
       return;
     }
-
+    
+    const file = files[currentIndex];
     const formData = new FormData();
     formData.append('file', file);
     const csrftoken = getCookie('csrftoken');
-
+    
+    try {
+      const response = await fetch('/api/datasets/upload/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        body: formData,
+      });
+      
+      const data = await response.json();
+      
+      if (data.ok) {
+        showNotification('Upload Successful', `${file.name}: ${data.summary.row_count} rows`, 'success');
+        // Add the new dataset card immediately
+        addDatasetCard(data.dataset);
+        // Update the project dataset count
+        updateProjectDatasetCount();
+      } else {
+        showNotification('Upload Failed', `${file.name}: ${data.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      showNotification('Upload Error', `${file.name}: Upload failed`, 'error');
+    }
+    
+    // Update progress and continue with next file
+    updateUploadProgress(currentIndex + 1, files.length);
+    setTimeout(() => uploadFilesSequentially(files, currentIndex + 1), 500);
+  };
+  
+  const updateUploadProgress = (completed, total) => {
+    const percentage = Math.round((completed / total) * 100);
     uploadLabel.innerHTML = `
       <svg class="w-8 h-8 mb-2 text-secondary animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
-      <p class="text-sm text-secondary font-semibold">Processing...</p>
+      <p class="text-sm text-secondary font-semibold">Uploading ${completed}/${total} files...</p>
+      <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+        <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: ${percentage}%"></div>
+      </div>
     `;
-
-    fetch('/api/datasets/upload/', {
-      method: 'POST',
-      headers: { 'X-CSRFToken': csrftoken },
-      body: formData,
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.ok) {
-        showAlert('Upload Successful', `Successfully uploaded: <strong>${data.summary.name}</strong><br>Rows: ${data.summary.row_count}`, 'success');
-        resetUploadLabel();
-        // Add the new dataset card immediately
-        addDatasetCard(data.dataset);
-        // Update the dataset count
-        updateDatasetCount();
-      } else {
-        showAlert('Upload Failed', data.error, 'error');
-        resetUploadLabel();
-      }
-    })
-    .catch(error => {
-      console.error('Error uploading file:', error);
-      showAlert('Error', 'An unexpected error occurred during upload.', 'error');
-      resetUploadLabel();
-    });
   };
 
   uploadInput.addEventListener('change', (event) => {
-    handleFileSelect(event.target.files[0]);
+    handleMultipleFileSelect(event.target.files);
   });
 
   uploadLabel.addEventListener('dragover', (event) => {
@@ -362,16 +229,17 @@ document.addEventListener('DOMContentLoaded', function () {
   uploadLabel.addEventListener('drop', (event) => {
     event.preventDefault();
     uploadLabel.classList.remove('border-blue-500', 'bg-blue-50');
-    handleFileSelect(event.dataTransfer.files[0]);
+    handleMultipleFileSelect(event.dataTransfer.files);
   });
 
   function resetUploadLabel() {
     uploadLabel.innerHTML = `
-      <svg class="w-8 h-8 mb-2 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-12 h-12 mb-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
       </svg>
-      <p class="text-sm text-secondary font-semibold">Upload CSV</p>
-      <p class="text-xs text-secondary">or drag & drop</p>
+      <p class="text-lg text-secondary font-semibold mb-2">Upload CSV Files</p>
+      <p class="text-xs text-secondary">Select multiple files or drag & drop</p>
+      <input id="quick-upload" type="file" class="hidden" accept=".csv" multiple />
     `;
   }
 
@@ -621,12 +489,27 @@ function openAnalysis(analysisId) {
 
 // Function to add a new dataset card to the grid
 function addDatasetCard(dataset) {
-  const datasetsGrid = document.querySelector('.grid.grid-cols-1.md\\:grid-cols-3.lg\\:grid-cols-4.xl\\:grid-cols-6');
+  // Look for existing datasets grid
+  let datasetsGrid = document.getElementById('datasets-grid');
   
   if (!datasetsGrid) {
-    // If no datasets grid exists (empty state), reload the page
-    setTimeout(() => location.reload(), 1500);
-    return;
+    // No grid exists (empty state), create one
+    const container = document.getElementById('datasets-container');
+    const emptyState = document.getElementById('empty-state');
+    
+    if (container && emptyState) {
+      // Hide empty state and create grid
+      emptyState.style.display = 'none';
+      
+      datasetsGrid = document.createElement('div');
+      datasetsGrid.id = 'datasets-grid';
+      datasetsGrid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
+      
+      container.appendChild(datasetsGrid);
+    } else {
+      console.log('No datasets container found, card will appear after reload');
+      return;
+    }
   }
 
   // Remove .csv extension from name
@@ -634,7 +517,7 @@ function addDatasetCard(dataset) {
   
   // Create the new card HTML
   const cardHTML = `
-    <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+    <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden group" data-dataset-id="${dataset.id}">
       <!-- Card Header -->
       <div class="bg-gray-50 px-3 py-1.5 border-b border-gray-200">
         <div class="flex justify-between items-center">
@@ -750,21 +633,28 @@ function updateDatasetCount() {
 
 // Function to remove dataset card from DOM when deleted
 function removeDatasetCard(datasetId) {
-  const card = document.querySelector(`[onclick*="openDataset('${datasetId}')"]`);
+  // Find the card by data-dataset-id attribute (most reliable)
+  let card = document.querySelector(`[data-dataset-id="${datasetId}"]`);
+  
+  // If not found by data attribute, try the old method as fallback
+  if (!card) {
+    const cardBody = document.querySelector(`[onclick*="openDataset('${datasetId}')"]`);
+    card = cardBody ? cardBody.closest('.bg-white.rounded-lg') : null;
+  }
+  
   if (card) {
+    // If we found a non-card element (like the title), get the parent card
+    const wholeCard = card.closest('.bg-white.rounded-lg') || card;
+    
     // Add fade out animation
-    card.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
-    card.style.opacity = '0';
-    card.style.transform = 'scale(0.95)';
+    wholeCard.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+    wholeCard.style.opacity = '0';
+    wholeCard.style.transform = 'scale(0.95)';
     
     setTimeout(() => {
-      card.remove();
-      // Update the dataset count
-      const datasetCountElement = document.querySelector('.kpi-card p.text-2xl');
-      if (datasetCountElement) {
-        const currentCount = parseInt(datasetCountElement.textContent) || 0;
-        datasetCountElement.textContent = Math.max(0, currentCount - 1);
-      }
+      wholeCard.remove();
+      // Update the project dataset count
+      updateProjectDatasetCount();
     }, 500);
   }
 }
@@ -1209,7 +1099,17 @@ function deleteProject(projectId, projectName) {
       'X-CSRFToken': csrftoken
     }
   })
-  .then(response => response.json())
+  .then(response => {
+    if (!response.ok) {
+      // Handle HTTP errors without calling response.json() twice
+      return response.json().then(data => {
+        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+      }).catch(() => {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      });
+    }
+    return response.json();
+  })
   .then(data => {
     if (data.ok) {
       showAlert('Success', `Project "${projectName}" deleted successfully`, 'success');
@@ -1223,12 +1123,23 @@ function deleteProject(projectId, projectName) {
   })
   .catch(error => {
     console.error('Error deleting project:', error);
-    showAlert('Error', 'Failed to delete project', 'error');
+    showAlert('Error', error.message || 'Failed to delete project', 'error');
   });
 }
 
 function createProject() {
   showCreateProjectModal();
+}
+
+// Helper function to update project dataset count
+function updateProjectDatasetCount() {
+  const countElement = document.getElementById('project-dataset-count');
+  if (countElement) {
+    // Count visible dataset cards on the page (only root card divs, not child elements)
+    const visibleDatasets = document.querySelectorAll('.bg-white.rounded-lg[data-dataset-id]').length;
+    const countText = visibleDatasets === 1 ? '1 dataset' : `${visibleDatasets} datasets`;
+    countElement.textContent = countText;
+  }
 }
 
 // Helper function to get CSRF token

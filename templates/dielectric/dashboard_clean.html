@@ -18,14 +18,14 @@
           <svg class="w-12 h-12 mb-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
           </svg>
-          <p class="text-lg text-secondary font-semibold mb-2">Upload CSV</p>
+          <p class="text-lg text-secondary font-semibold mb-2">Upload CSV Files</p>
           {% if active_project %}
           <p class="text-sm text-secondary">to {{ active_project.name }}</p>
-          <p class="text-xs text-secondary mt-1">or drag & drop files here</p>
+          <p class="text-xs text-secondary mt-1">Select multiple files or drag & drop</p>
           {% else %}
-          <p class="text-sm text-secondary">or drag & drop files here</p>
+          <p class="text-sm text-secondary">Select multiple files or drag & drop</p>
           {% endif %}
-          <input id="quick-upload" type="file" class="hidden" accept=".csv" />
+          <input id="quick-upload" type="file" class="hidden" accept=".csv" multiple />
         </label>
       </div>
 
@@ -47,7 +47,7 @@
                   <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z"></path>
                   </svg>
-                  <span>{{ active_project.dataset_count }} dataset{{ active_project.dataset_count|pluralize }}</span>
+                  <span id="project-dataset-count">{{ active_project.dataset_count }} dataset{{ active_project.dataset_count|pluralize }}</span>
                 </div>
                 <div class="flex items-center text-sm text-secondary">
                   <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,10 +92,11 @@
     </div>
 
     <!-- Datasets Section -->
-    {% if datasets %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-      {% for dataset in datasets|slice:":12" %}
-      <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+    <div id="datasets-container" class="mb-6">
+      {% if datasets %}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="datasets-grid">
+        {% for dataset in datasets|slice:":12" %}
+      <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden group" data-dataset-id="{{ dataset.id }}">
         <!-- Card Header -->
         <div class="bg-gray-50 px-3 py-1.5 border-b border-gray-200">
           <div class="flex justify-between items-center">
@@ -192,21 +193,22 @@
       <div class="bg-white p-3 rounded-lg shadow-sm"><div class="h-20 mb-2"><canvas id="dashChart1"></canvas></div></div>
       <div class="bg-white p-3 rounded-lg shadow-sm"><div class="h-20 mb-2"><canvas id="dashChart2"></canvas></div></div>
       <div class="bg-white p-3 rounded-lg shadow-sm"><div class="h-20 mb-2"><canvas id="dashChart3"></canvas></div></div>
-      {% endfor %}
+        {% endfor %}
+      </div>
+      {% else %}
+      <!-- Show empty state when no data exists -->
+      <div id="empty-state" class="text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z"></path>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">No datasets</h3>
+        <p class="mt-1 text-sm text-gray-500">Get started by uploading a CSV file.</p>
+      </div>
+      {% endif %}
     </div>
-    {% elif not datasets %}
-    <!-- Show empty state when no data exists -->
-    <div class="text-center py-12">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z"></path>
-      </svg>
-      <h3 class="mt-2 text-sm font-medium text-gray-900">No datasets</h3>
-      <p class="mt-1 text-sm text-gray-500">Get started by uploading a CSV file.</p>
-    </div>
-    {% endif %}
   </div>
 {% endblock %}
 
 {% block scripts %}
-  <script src="{% static 'dielectric/js/dashboard.js' %}?v=6"></script>
+  <script src="{% static 'dielectric/js/dashboard.js' %}?v=9"></script>
 {% endblock %}
