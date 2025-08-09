@@ -59,6 +59,7 @@ function deleteDataset(datasetId, datasetName) {
 }
 
 // Dataset moving between projects
+// Display a project selection modal and then move a dataset
 function moveDatasetToProject(datasetId, currentProjectName) {
   // Get available projects and show selection modal
   ApiEndpoints.projects.list().then(result => {
@@ -80,6 +81,7 @@ function moveDatasetToProject(datasetId, currentProjectName) {
   });
 }
 
+// Internal modal for selecting a target project (shared implementation)
 function showProjectSelectionModal(projects, onSelect) {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';

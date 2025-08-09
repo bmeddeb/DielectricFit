@@ -1,123 +1,4 @@
-// Notification System
-function showNotification(title, message, type = 'info') {
-  const container = document.getElementById('alert-container');
-  if (!container) return;
-  
-  const icons = {
-    success: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
-    error: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
-    warning: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>',
-    info: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
-  };
-  
-  const colors = {
-    success: 'bg-green-50 text-green-800 border-green-200',
-    error: 'bg-red-50 text-red-800 border-red-200',
-    warning: 'bg-yellow-50 text-yellow-800 border-yellow-200',
-    info: 'bg-blue-50 text-blue-800 border-blue-200'
-  };
-  
-  const iconColors = {
-    success: 'text-green-400',
-    error: 'text-red-400',
-    warning: 'text-yellow-400',
-    info: 'text-blue-400'
-  };
-  
-  const notificationId = 'notification-' + Date.now();
-  const notification = document.createElement('div');
-  notification.id = notificationId;
-  notification.className = `flex items-start p-4 mb-2 border rounded-lg shadow-sm ${colors[type]} transition-all duration-300 transform translate-x-0`;
-  notification.innerHTML = `
-    <svg class="w-5 h-5 mr-3 mt-0.5 flex-shrink-0 ${iconColors[type]}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      ${icons[type]}
-    </svg>
-    <div class="flex-1">
-      <p class="font-medium">${title}</p>
-      ${message ? `<p class="text-sm mt-1 opacity-90">${message}</p>` : ''}
-    </div>
-    <button onclick="dismissNotification('${notificationId}')" class="ml-3 flex-shrink-0 opacity-70 hover:opacity-100">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-      </svg>
-    </button>
-  `;
-  
-  container.appendChild(notification);
-  
-  // Auto-dismiss after 5 seconds
-  setTimeout(() => dismissNotification(notificationId), 5000);
-}
-
-function dismissNotification(notificationId) {
-  const notification = document.getElementById(notificationId);
-  if (notification) {
-    notification.style.transform = 'translateX(120%)';
-    setTimeout(() => notification.remove(), 300);
-  }
-}
-
-// Backward compatibility - redirect showAlert to showNotification
-function showAlert(title, message, type = 'info') {
-  showNotification(title, message, type);
-}
-
-// Confirmation Modal System
-function showConfirmModal(message, onConfirm, onCancel = null, options = {}) {
-  const modal = document.createElement('div');
-  modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
-  
-  const title = options.title || 'Confirm Action';
-  const confirmText = options.confirmText || 'Confirm';
-  const cancelText = options.cancelText || 'Cancel';
-  const confirmStyle = options.dangerous ? 
-    'bg-red-600 text-white hover:bg-red-700' : 
-    'bg-blue-600 text-white hover:bg-blue-700';
-  
-  modal.innerHTML = `
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-      <div class="mt-3">
-        <div class="flex items-center mb-4">
-          <svg class="w-6 h-6 mr-2 ${options.dangerous ? 'text-red-500' : 'text-yellow-500'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-          </svg>
-          <h3 class="text-lg font-medium text-gray-900">${title}</h3>
-        </div>
-        <p class="text-sm text-gray-600 mb-4">${message}</p>
-        <div class="flex justify-end space-x-3">
-          <button id="modalCancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
-            ${cancelText}
-          </button>
-          <button id="modalConfirm" class="px-4 py-2 ${confirmStyle} rounded-md transition-colors">
-            ${confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  document.body.appendChild(modal);
-  
-  const confirmBtn = modal.querySelector('#modalConfirm');
-  const cancelBtn = modal.querySelector('#modalCancel');
-  
-  confirmBtn.addEventListener('click', () => {
-    modal.remove();
-    if (onConfirm) onConfirm();
-  });
-  
-  cancelBtn.addEventListener('click', () => {
-    modal.remove();
-    if (onCancel) onCancel();
-  });
-  
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.remove();
-      if (onCancel) onCancel();
-    }
-  });
-}
+// Notifications and confirmations are provided by shared/js/notifications.js
 
 document.addEventListener('DOMContentLoaded', function () {
   console.log('Dashboard script loaded');
@@ -126,7 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initializeTitleEditing();
 
   // --- Upload Logic ---
-  const uploadInput = document.getElementById('quick-upload');
+  let uploadInput = document.getElementById('quick-upload');
   if (!uploadInput) return;
   const uploadLabel = uploadInput.parentElement;
 
@@ -161,14 +42,14 @@ document.addEventListener('DOMContentLoaded', function () {
   
   const uploadFilesSequentially = async (files, currentIndex) => {
     if (currentIndex >= files.length) {
-      resetUploadLabel();
+      resetUploadUI();
       return;
     }
     
     const file = files[currentIndex];
     const formData = new FormData();
     formData.append('file', file);
-    const csrftoken = getCookie('csrftoken');
+    const csrftoken = getCsrfToken();
     
     try {
       const response = await fetch('/api/datasets/upload/', {
@@ -198,23 +79,52 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(() => uploadFilesSequentially(files, currentIndex + 1), 500);
   };
   
+  function ensureProgressElements() {
+    let progress = uploadLabel.querySelector('#upload-progress');
+    if (!progress) {
+      progress = document.createElement('div');
+      progress.id = 'upload-progress';
+      progress.className = 'flex flex-col items-center justify-center';
+      progress.style.display = 'none';
+      progress.innerHTML = `
+        <svg class="w-8 h-8 mb-2 text-secondary animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p id="upload-progress-text" class="text-sm text-secondary font-semibold">Preparing upload...</p>
+        <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+          <div id="upload-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      `;
+      uploadLabel.appendChild(progress);
+    }
+    return progress;
+  }
+
   const updateUploadProgress = (completed, total) => {
     const percentage = Math.round((completed / total) * 100);
-    uploadLabel.innerHTML = `
-      <svg class="w-8 h-8 mb-2 text-secondary animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      <p class="text-sm text-secondary font-semibold">Uploading ${completed}/${total} files...</p>
-      <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-        <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: ${percentage}%"></div>
-      </div>
-    `;
+    const progress = ensureProgressElements();
+    const text = progress.querySelector('#upload-progress-text');
+    const bar = progress.querySelector('#upload-progress-bar');
+    // Hide default label content except the input and progress container
+    Array.from(uploadLabel.children).forEach(child => {
+      if (child === uploadInput || child === progress) return;
+      child.style.display = 'none';
+    });
+    progress.style.display = '';
+    if (text) text.textContent = `Uploading ${completed}/${total} files...`;
+    if (bar) bar.style.width = `${percentage}%`;
   };
 
+  function bindUploadInput() {
+    uploadInput = document.getElementById('quick-upload');
+    if (!uploadInput) return;
   uploadInput.addEventListener('change', (event) => {
     handleMultipleFileSelect(event.target.files);
   });
+  }
+  // Initial bind
+  bindUploadInput();
 
   uploadLabel.addEventListener('dragover', (event) => {
     event.preventDefault();
@@ -232,31 +142,25 @@ document.addEventListener('DOMContentLoaded', function () {
     handleMultipleFileSelect(event.dataTransfer.files);
   });
 
-  function resetUploadLabel() {
-    uploadLabel.innerHTML = `
-      <svg class="w-12 h-12 mb-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-      </svg>
-      <p class="text-lg text-secondary font-semibold mb-2">Upload CSV Files</p>
-      <p class="text-xs text-secondary">Select multiple files or drag & drop</p>
-      <input id="quick-upload" type="file" class="hidden" accept=".csv" multiple />
-    `;
+  function resetUploadUI() {
+    const progress = uploadLabel.querySelector('#upload-progress');
+    // Show default content again
+    Array.from(uploadLabel.children).forEach(child => {
+      if (child === uploadInput || child === progress) return;
+      child.style.display = '';
+    });
+    if (progress) {
+      progress.style.display = 'none';
+      const bar = progress.querySelector('#upload-progress-bar');
+      const text = progress.querySelector('#upload-progress-text');
+      if (bar) bar.style.width = '0%';
+      if (text) text.textContent = 'Ready';
+    }
+    // Reset the file input so selecting the same files triggers change
+    if (uploadInput) uploadInput.value = '';
   }
 
-  function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-      const cookies = document.cookie.split(';');
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  }
+  // CSRF cookie helper not needed here; use getCsrfToken() from shared api.js
 
   // Initialize placeholder charts
   const chartIds = ['dashChart1', 'dashChart2', 'dashChart3'];
@@ -463,7 +367,7 @@ function deleteDataset(datasetId, datasetName) {
 
 // Global function to handle the actual deletion after confirmation
 window.confirmDelete = function(datasetId) {
-  const csrftoken = getCookie('csrftoken');
+  const csrftoken = getCsrfToken();
   fetch(`/api/datasets/${datasetId}/`, {
     method: 'DELETE',
     headers: { 'X-CSRFToken': csrftoken }
@@ -775,7 +679,7 @@ function showProjectSwitcherModal(projects) {
 }
 
 function switchToProject(projectId, projectName) {
-  const csrftoken = getCookie('csrftoken');
+  const csrftoken = getCsrfToken();
   
   fetch('/api/projects/switch/', {
     method: 'POST',
@@ -1132,28 +1036,4 @@ function createProject() {
 }
 
 // Helper function to update project dataset count
-function updateProjectDatasetCount() {
-  const countElement = document.getElementById('project-dataset-count');
-  if (countElement) {
-    // Count visible dataset cards on the page (only root card divs, not child elements)
-    const visibleDatasets = document.querySelectorAll('.bg-white.rounded-lg[data-dataset-id]').length;
-    const countText = visibleDatasets === 1 ? '1 dataset' : `${visibleDatasets} datasets`;
-    countElement.textContent = countText;
-  }
-}
-
-// Helper function to get CSRF token
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
-}
+// updateProjectDatasetCount is provided by shared/js/datasets.js

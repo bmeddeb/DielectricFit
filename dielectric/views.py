@@ -5,7 +5,6 @@ import io
 import logging
 import re
 import pandas as pd
-from datetime import date
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -270,6 +269,11 @@ def datasets_api_update(request: HttpRequest, dataset_id: int) -> JsonResponse:
 @require_http_methods(["DELETE"])
 def datasets_api_delete(request: HttpRequest, dataset_id) -> JsonResponse:
     dataset = get_object_or_404(Dataset, id=dataset_id)
+    # Authorization: owner or project-level delete permission
+    project = dataset.project
+    allowed = (dataset.owner_id == request.user.id) or (project and project.user_can_delete_datasets(request.user))
+    if not allowed:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
     dataset.delete()
     return JsonResponse({"ok": True})
 
@@ -278,6 +282,10 @@ def datasets_api_delete(request: HttpRequest, dataset_id) -> JsonResponse:
 def dataset_data_api(request: HttpRequest, dataset_id) -> JsonResponse:
     """Return dataset points for plotting"""
     dataset = get_object_or_404(Dataset, id=dataset_id)
+    # Authorization: owner or project read access
+    project = dataset.project
+    if not ((dataset.owner_id == request.user.id) or (project and project.user_can_view(request.user))):
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
     
     # Get raw data points ordered by frequency
     points = RawDataPoint.objects.filter(dataset=dataset).order_by('frequency_hz')
@@ -310,7 +318,7 @@ def dataset_data_api(request: HttpRequest, dataset_id) -> JsonResponse:
 @require_http_methods(["GET"])
 def user_projects_api(request: HttpRequest) -> JsonResponse:
     """Return user's accessible projects for project switcher"""
-    print(f"DEBUG: API called by user: {request.user}")
+    logger.debug("API called by user: %s", request.user)
     try:
         # Ensure user has at least one project
         user_projects = Project.objects.filter(
@@ -337,9 +345,9 @@ def user_projects_api(request: HttpRequest) -> JsonResponse:
             pass
         
         projects_data = []
-        print(f"DEBUG: Processing {user_projects.count()} projects")
+        logger.debug("Processing %d projects", user_projects.count())
         for project in user_projects:
-            print(f"DEBUG: Processing project {project.name}")
+            logger.debug("Processing project %s", project.name)
             project_data = {
                 "id": str(project.id),
                 "name": project.name,
@@ -352,7 +360,7 @@ def user_projects_api(request: HttpRequest) -> JsonResponse:
             }
             projects_data.append(project_data)
         
-        print(f"DEBUG: Returning {len(projects_data)} projects")
+        logger.debug("Returning %d projects", len(projects_data))
         return JsonResponse({
             "ok": True,
             "projects": projects_data,
@@ -360,9 +368,7 @@ def user_projects_api(request: HttpRequest) -> JsonResponse:
         })
         
     except Exception as e:
-        import traceback
-        print(f"Error in user_projects_api: {str(e)}")
-        print(traceback.format_exc())
+        logger.exception("Error in user_projects_api: %s", e)
         return JsonResponse({
             "ok": False,
             "error": str(e),

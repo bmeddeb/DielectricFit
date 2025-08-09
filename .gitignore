@@ -15,7 +15,7 @@ __pycache__/
 
 # Dev internal docs
 docs/
-
+dev/
 
 # Distribution / packaging
 .Python
@@ -248,6 +248,8 @@ out/
 copilot.md
 .claude/
 claude.md
+.codex/
+AGENTS.md
 *.back
 *.bak
 *.suo
