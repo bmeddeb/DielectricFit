@@ -40,9 +40,33 @@ document.addEventListener('DOMContentLoaded', function () {
     uploadFilesSequentially(validFiles, 0);
   };
   
+  // Batch upload status element
+  let batchStatusEl = null;
+
+  function showOrUpdateBatchStatus(current, total, filename, done = false, errors = 0) {
+    let container = document.getElementById('alert-container');
+    if (!container) return;
+    if (!batchStatusEl) {
+      batchStatusEl = document.createElement('div');
+      batchStatusEl.id = 'batch-upload-status';
+      batchStatusEl.className = 'max-w-sm w-full bg-blue-50 text-blue-800 border border-blue-200 rounded-lg p-4 shadow-lg mb-2';
+      container.appendChild(batchStatusEl);
+    }
+    if (done) {
+      batchStatusEl.className = errors === 0 ? 'max-w-sm w-full bg-green-50 text-green-800 border border-green-200 rounded-lg p-4 shadow-lg mb-2'
+                                            : 'max-w-sm w-full bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-lg p-4 shadow-lg mb-2';
+      batchStatusEl.innerHTML = `<div class="flex items-start"><div class="flex-1"><p class="font-medium">Upload complete</p><p class="text-sm mt-1">${total - errors} succeeded${errors ? `, ${errors} failed` : ''}</p></div></div>`;
+      setTimeout(() => { if (batchStatusEl) { batchStatusEl.remove(); batchStatusEl = null; } }, 3000);
+    } else {
+      batchStatusEl.innerHTML = `<div class="flex items-start"><div class="flex-1"><p class="font-medium">Uploading ${current}/${total}</p><p class="text-sm mt-1 truncate">${filename}</p></div></div>`;
+    }
+  }
+
+  let errorCount = 0;
   const uploadFilesSequentially = async (files, currentIndex) => {
     if (currentIndex >= files.length) {
       resetUploadUI();
+      showOrUpdateBatchStatus(files.length, files.length, '', true, errorCount);
       return;
     }
     
@@ -52,6 +76,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrftoken = getCsrfToken();
     
     try {
+      showOrUpdateBatchStatus(currentIndex + 1, files.length, file.name, false);
       const response = await fetch('/api/datasets/upload/', {
         method: 'POST',
         headers: { 'X-CSRFToken': csrftoken },
@@ -61,17 +86,17 @@ document.addEventListener('DOMContentLoaded', function () {
       const data = await response.json();
       
       if (data.ok) {
-        showNotification('Upload Successful', `${file.name}: ${data.summary.row_count} rows`, 'success');
         // Add the new dataset card immediately
         addDatasetCard(data.dataset);
         // Update the project dataset count
         updateProjectDatasetCount();
       } else {
-        showNotification('Upload Failed', `${file.name}: ${data.error}`, 'error');
+        console.error('Upload failed:', data.error);
+        errorCount += 1;
       }
     } catch (error) {
       console.error('Error uploading file:', error);
-      showNotification('Upload Error', `${file.name}: Upload failed`, 'error');
+      errorCount += 1;
     }
     
     // Update progress and continue with next file

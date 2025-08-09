@@ -259,10 +259,22 @@ def datasets_api_create(request: HttpRequest) -> JsonResponse:
 @require_http_methods(["POST"])
 def datasets_api_update(request: HttpRequest, dataset_id: int) -> JsonResponse:
     dataset = get_object_or_404(Dataset, id=dataset_id, owner=request.user)
-    if request.POST.get("name"):
-        dataset.name = request.POST["name"]
-    dataset.save()
-    return JsonResponse({"ok": True})
+    new_name = None
+    # Support both JSON and form-encoded payloads
+    if request.content_type and 'application/json' in request.content_type:
+        try:
+            import json
+            data = json.loads(request.body or b"{}")
+            new_name = (data.get("name") or "").strip()
+        except Exception:
+            new_name = None
+    if not new_name:
+        new_name = (request.POST.get("name") or "").strip()
+    if new_name:
+        dataset.name = new_name
+        dataset.save(update_fields=["name", "updated_at"])
+        return JsonResponse({"ok": True, "name": dataset.name})
+    return JsonResponse({"ok": False, "error": "No valid name provided"}, status=400)
 
 
 @login_required
