@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', function() {
   if (accountCard) {
     // Ensure initial state is view mode
     toggleAccountEdit(false);
-    populateTimezones();
   }
 });
 
@@ -140,39 +139,7 @@ function saveAccountInline() {
   });
 }
 
-function populateTimezones() {
-  const select = document.getElementById('input-timezone');
-  if (!select) return;
-  // Try modern API
-  let zones = [];
-  if (typeof Intl.supportedValuesOf === 'function') {
-    try { zones = Intl.supportedValuesOf('timeZone') || []; } catch (e) {}
-  }
-  if (!zones.length) {
-    // Fallback minimal list if browser lacks API
-    zones = [
-      'UTC', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'Asia/Tokyo'
-    ];
-  }
-  // Clear current
-  select.innerHTML = '';
-  // Sort zones alphabetically
-  zones.sort((a,b)=> a.localeCompare(b));
-  // Build options with region group separators (simple heuristic)
-  const frag = document.createDocumentFragment();
-  for (const tz of zones) {
-    const opt = document.createElement('option');
-    opt.value = tz;
-    opt.textContent = tz;
-    frag.appendChild(opt);
-  }
-  select.appendChild(frag);
-  // Preselect: prefer display's current value, else browser tz
-  const current = document.getElementById('display-timezone')?.textContent?.trim();
-  const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const target = (current && zones.includes(current)) ? current : (zones.includes(browserTz) ? browserTz : 'UTC');
-  select.value = target;
-}
+// timezone selection is handled by the Alpine dropdown component globally
 
 // Project Management Functions
 function loadProjects() {

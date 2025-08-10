@@ -75,14 +75,10 @@
           </div>
           <div>
             <label class="block text-xs font-medium text-secondary mb-0.5">Time Zone</label>
-            <div class="text-primary text-sm js-view" id="display-timezone">UTC (GMT+0)</div>
-            <select class="js-edit hidden w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none" id="input-timezone" name="timezone">
-              <option value="UTC (GMT+0)" selected>UTC (GMT+0)</option>
-              <option value="America/New_York">New York (GMT-4)</option>
-              <option value="Europe/London">London (GMT+1)</option>
-              <option value="Europe/Berlin">Berlin (GMT+2)</option>
-              <option value="Asia/Tokyo">Tokyo (GMT+9)</option>
-            </select>
+            <div class="text-primary text-sm js-view" id="display-timezone">UTC</div>
+            <div class="js-edit hidden">
+              {% include 'components/timezone_dropdown.html' with input_id='input-timezone' name='timezone' %}
+            </div>
           </div>
         </div>
       </div>
