@@ -182,7 +182,29 @@ function loadProjects() {
   })
   .catch(error => {
     console.error('Error loading projects:', error);
-    projectsList.innerHTML = errorBox('Failed to load projects');
+    // Fallback: try simpler endpoint without datasets to avoid blank UI
+    fetch('/api/projects/', { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(data => {
+        if (data && data.ok && Array.isArray(data.projects)) {
+          // Map to expected structure, with empty datasets
+          const mapped = data.projects.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            visibility: p.visibility,
+            created_at: p.last_activity || '',
+            dataset_count: p.dataset_count,
+            member_count: p.member_count,
+            is_active: !!p.is_active,
+            datasets: []
+          }));
+          renderProjects(mapped);
+        } else {
+          projectsList.innerHTML = errorBox('Failed to load projects');
+        }
+      })
+      .catch(() => { projectsList.innerHTML = errorBox('Failed to load projects'); });
   });
 
   function errorBox(message) {
