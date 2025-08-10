@@ -11,6 +11,6 @@ dependencies = [
   "pytest>=8.4.1",
   "scipy>=1.16.1",
   "statsmodels>=0.14.5",
-    "tzdata>=2024.1",
+  "tzdata>=2024.1",
 ]
 

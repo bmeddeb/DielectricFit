@@ -162,41 +162,40 @@ function loadProjects() {
   
   fetch('/api/profile/projects/', {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Accept': 'application/json' },
     credentials: 'same-origin'
   })
-  .then(response => response.json())
+  .then(async (response) => {
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
+    }
+    return response.json();
+  })
   .then(data => {
-    if (data.ok) {
-      renderProjects(data.projects);
+    if (data && data.ok) {
+      renderProjects(data.projects || []);
     } else {
-      projectsList.innerHTML = `
-        <div class="flex items-center justify-center py-8">
-          <div class="text-center">
-            <svg class="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <p class="mt-2 text-sm text-red-500">${data.error || 'Failed to load projects'}</p>
-          </div>
-        </div>
-      `;
+      const msg = data && data.error ? data.error : 'Failed to load projects';
+      projectsList.innerHTML = errorBox(msg);
     }
   })
   .catch(error => {
     console.error('Error loading projects:', error);
-    projectsList.innerHTML = `
+    projectsList.innerHTML = errorBox('Failed to load projects');
+  });
+
+  function errorBox(message) {
+    return `
       <div class="flex items-center justify-center py-8">
         <div class="text-center">
           <svg class="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <p class="mt-2 text-sm text-red-500">Failed to load projects</p>
+          <p class="mt-2 text-sm text-red-500">${message}</p>
         </div>
-      </div>
-    `;
-  });
+      </div>`;
+  }
 }
 
 function renderProjects(projects) {
@@ -457,6 +456,13 @@ function renameProject(projectId) {
 }
 
 function renameProjectInline(projectId) {
+  const card = document.querySelector(`[data-project-id="${projectId}"]`);
+  const title = card?.querySelector('.js-title-view')?.textContent?.trim();
+  if (title === 'Default') {
+    // Front-end guard: prevent editing Default project
+    showNotification('Info', 'Default project cannot be renamed', 'info');
+    return;
+  }
   toggleProjectRename(projectId, true);
 }
 
