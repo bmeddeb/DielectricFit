@@ -1,0 +1,11 @@
+# Testing dependencies
+pytest>=7.0.0
+pytest-django>=4.5.0
+pytest-cov>=4.0.0
+pytest-xdist>=3.0.0  # Parallel test execution
+pytest-benchmark>=4.0.0  # Performance benchmarking
+hypothesis>=6.0.0  # Property-based testing
+
+# Scientific computing testing
+pytest-mock>=3.10.0  # Mocking for tests
+pytest-timeout>=2.1.0  # Timeout for slow tests
