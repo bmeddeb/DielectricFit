@@ -94,7 +94,10 @@ def get_or_create_active_project(user):
 
 @login_required
 def user_profile(request: HttpRequest) -> HttpResponse:
-    return render(request, "people/profile.html")
+    # Ensure a profile exists for the user to avoid template relation errors
+    from .models import UserProfile
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    return render(request, "people/profile.html", {"profile": profile})
 
 
 @login_required
@@ -451,6 +454,13 @@ def update_profile_api(request: HttpRequest) -> JsonResponse:
             profile.save(update_fields=["timezone", "updated_at"])
             # also mirror into session so it's applied immediately this request
             request.session['django_timezone'] = tzname
+
+        # Persist phone if provided
+        if 'phone' in data:
+            from .models import UserProfile
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.phone = (data['phone'] or '').strip()
+            profile.save(update_fields=["phone", "updated_at"])
         
         # Handle additional profile fields (phone, timezone) if we have a profile model
         # For now, we'll just return success

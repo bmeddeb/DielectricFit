@@ -70,14 +70,14 @@
           </div>
           <div>
             <label class="block text-xs font-medium text-secondary mb-0.5">Phone Number</label>
-            <div class="text-primary text-sm js-view" id="display-phone">Not provided</div>
-            <input type="text" class="js-edit hidden w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none" id="input-phone" name="phone" value="">
+            <div class="text-primary text-sm js-view" id="display-phone">{{ profile.phone|default:"Not provided" }}</div>
+            <input type="text" class="js-edit hidden w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none" id="input-phone" name="phone" value="{{ profile.phone }}">
           </div>
           <div>
             <label class="block text-xs font-medium text-secondary mb-0.5">Time Zone</label>
-            <div class="text-primary text-sm js-view" id="display-timezone">UTC</div>
+            <div class="text-primary text-sm js-view" id="display-timezone">{{ profile.timezone|default:"UTC" }}</div>
             <div class="js-edit hidden">
-              {% include 'components/timezone_dropdown.html' with input_id='input-timezone' name='timezone' %}
+              {% include 'components/timezone_dropdown.html' with input_id='input-timezone' name='timezone' initial=profile.timezone %}
             </div>
           </div>
         </div>
