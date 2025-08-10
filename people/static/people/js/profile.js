@@ -247,11 +247,16 @@ function renderProjects(projects) {
           <div class="flex items-center space-x-2">
             <span class="text-xs text-gray-500">${project.dataset_count} datasets</span>
             <div class="relative">
-              <button onclick="showProjectMenu('${project.id}', event)" class="p-1 text-gray-400 hover:text-gray-600">
+              <button onclick="toggleProjectMenu('${project.id}', event)" class="p-1 rounded hover:bg-gray-100 text-gray-500" aria-haspopup="true" aria-expanded="false" title="Project actions">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
                 </svg>
               </button>
+              <div id="project-menu-${project.id}" class="hidden absolute right-0 z-20 mt-1 w-44 bg-white border border-gray-200 rounded-md shadow-lg">
+                <button class="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50" onclick="renameProject('${project.id}')">Rename</button>
+                <button class="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50" onclick="archiveProject('${project.id}')">Archive</button>
+                <button class="w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50" onclick="confirmDeleteProject('${project.id}')">Delete</button>
+              </div>
             </div>
           </div>
         </div>
@@ -433,6 +438,7 @@ function showProjectMenu(projectId, event) {
 }
 
 function renameProject(projectId) {
+  hideAllProjectMenus();
   showConfirmModal('Enter new project name:', (newName) => {
     if (!newName.trim()) {
       showNotification('Error', 'Project name is required', 'error');
@@ -470,10 +476,12 @@ function updateProjectName(projectId, newName) {
 }
 
 function archiveProject(projectId) {
+  hideAllProjectMenus();
   showNotification('Info', 'Archive functionality coming soon', 'info');
 }
 
 function confirmDeleteProject(projectId) {
+  hideAllProjectMenus();
   showConfirmModal(
     'Are you sure you want to delete this project? This will also delete all datasets in the project. This action cannot be undone.',
     () => { deleteProject(projectId); },
@@ -481,6 +489,27 @@ function confirmDeleteProject(projectId) {
     { dangerous: true }
   );
 }
+
+// Project action menu helpers
+function toggleProjectMenu(projectId, event) {
+  event?.stopPropagation();
+  const menu = document.getElementById(`project-menu-${projectId}`);
+  if (!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  hideAllProjectMenus();
+  if (isHidden) menu.classList.remove('hidden');
+}
+
+function hideAllProjectMenus() {
+  document.querySelectorAll('[id^="project-menu-"]').forEach(el => el.classList.add('hidden'));
+}
+
+document.addEventListener('click', (e) => {
+  // Close menus when clicking outside
+  if (!e.target.closest('[id^="project-menu-"]') && !e.target.closest('[onclick^="toggleProjectMenu("]')) {
+    hideAllProjectMenus();
+  }
+});
 
 function deleteProject(projectId) {
   const csrftoken = getCookie('csrftoken');
