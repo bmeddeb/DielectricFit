@@ -16,6 +16,13 @@ document.addEventListener('DOMContentLoaded', function() {
   if (accountEditForm) {
     accountEditForm.addEventListener('submit', handleAccountUpdate);
   }
+
+  // Inline account edit controls (if present)
+  const accountCard = document.getElementById('account-card');
+  if (accountCard) {
+    // Ensure initial state is view mode
+    toggleAccountEdit(false);
+  }
 });
 
 // Debounce function for search
@@ -79,6 +86,62 @@ function handleAccountUpdate(event) {
     showNotification('Error', 'Failed to update profile', 'error');
   });
 }
+
+// Inline edit toggle
+function toggleAccountEdit(force) {
+  const card = document.getElementById('account-card');
+  if (!card) return;
+  const next = typeof force === 'boolean' ? force : !card.classList.contains('is-editing');
+  card.classList.toggle('is-editing', next);
+  card.querySelectorAll('.js-view').forEach(el => el.classList.toggle('hidden', next));
+  card.querySelectorAll('.js-edit').forEach(el => el.classList.toggle('hidden', !next));
+}
+
+// Save inline without modal
+function saveAccountInline() {
+  const data = {
+    first_name: document.getElementById('input-first-name')?.value || '',
+    last_name: document.getElementById('input-last-name')?.value || '',
+    email: document.getElementById('input-email')?.value || '',
+    timezone: document.getElementById('input-timezone')?.value || ''
+  };
+  // include phone in payload
+  data.phone = document.getElementById('input-phone')?.value || '';
+
+  // Optimistic UI update
+  document.getElementById('display-first-name').textContent = data.first_name || '-';
+  document.getElementById('display-last-name').textContent = data.last_name || '-';
+  document.getElementById('display-email').textContent = data.email || '';
+  const phone = data.phone || 'Not provided';
+  document.getElementById('display-phone').textContent = phone;
+  const tz = document.getElementById('input-timezone')?.value || 'UTC (GMT+0)';
+  document.getElementById('display-timezone').textContent = tz;
+
+  const csrftoken = getCookie('csrftoken');
+  fetch('/api/profile/update/', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrftoken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.ok) {
+      showNotification('Success', 'Profile updated successfully', 'success');
+      toggleAccountEdit(false);
+    } else {
+      showNotification('Error', res.error || 'Failed to update profile', 'error');
+    }
+  })
+  .catch(err => {
+    console.error('Inline profile update error', err);
+    showNotification('Error', 'Failed to update profile', 'error');
+  });
+}
+
+// timezone selection is handled by the Alpine dropdown component globally
 
 // Project Management Functions
 function loadProjects() {

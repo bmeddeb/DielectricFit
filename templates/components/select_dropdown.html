@@ -1,0 +1,39 @@
+{# Generic select dropdown. Provide items_json (JSON list of strings or objects), input_id, name, placeholder, value_key, label_key, initial. #}
+<div x-data="selectDropdown({
+        inputId: '{{ input_id }}',
+        items: {{ items_json|default:'[]'|safe }},
+        valueKey: '{{ value_key|default:"value" }}',
+        labelKey: '{{ label_key|default:"label" }}',
+        initial: '{{ initial|default:"" }}',
+        placeholder: '{{ placeholder|default:"Select an option" }}'
+      })" class="relative">
+  <input type="hidden" id="{{ input_id }}" name="{{ name|default:'select' }}" x-bind:value="selected">
+  <button type="button" @click="open = !open"
+          class="w-full flex items-center justify-between px-2 py-1 text-sm border border-gray-300 rounded hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white">
+    <span class="truncate" x-text="selected || placeholder"></span>
+    <svg class="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+    </svg>
+  </button>
+  <div x-show="open" x-transition @click.away="open = false"
+       class="absolute z-50 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg">
+    <div class="p-2 border-b border-gray-100">
+      <input type="text" x-model="query" placeholder="Search..."
+             class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:border-blue-500">
+    </div>
+    <ul class="max-h-64 overflow-auto py-1">
+      <template x-for="item in filtered()" :key="toValue(item)">
+        <li>
+          <button type="button" @click="choose(item)"
+                  class="w-full flex items-center justify-between px-2 py-1.5 text-sm hover:bg-blue-50">
+            <span class="truncate" x-text="toLabel(item)"></span>
+            <svg x-show="toValue(item) === selected" class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </button>
+        </li>
+      </template>
+      <li x-show="filtered().length === 0" class="px-2 py-2 text-xs text-gray-500">No matches</li>
+    </ul>
+  </div>
+</div>
