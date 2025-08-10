@@ -239,7 +239,13 @@ function renderProjects(projects) {
               </svg>
             </button>
             <div>
-              <h3 class="font-medium text-gray-900 text-sm">${project.name}</h3>
+              <div class="project-title flex items-center gap-1">
+                <span class="js-title-view font-medium text-gray-900 text-sm" ondblclick="renameProjectInline('${project.id}')">${project.name}</span>
+                <input class="js-title-input hidden px-1 py-0.5 text-sm border border-blue-300 rounded focus:outline-none focus:border-blue-500"
+                       value="${project.name}"
+                       onkeydown="handleProjectTitleKey(event, '${project.id}')"
+                       onblur="cancelProjectRename('${project.id}')">
+              </div>
               ${showDescription ? `<p class=\"text-xs text-gray-500\">${project.description}</p>` : ''}
             </div>
             ${project.is_active ? '<span class="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] rounded-full">Active</span>' : ''}
@@ -439,14 +445,67 @@ function showProjectMenu(projectId, event) {
 
 function renameProject(projectId) {
   hideAllProjectMenus();
-  showConfirmModal('Enter new project name:', (newName) => {
-    if (!newName.trim()) {
-      showNotification('Error', 'Project name is required', 'error');
-      return;
+  renameProjectInline(projectId);
+}
+
+function renameProjectInline(projectId) {
+  toggleProjectRename(projectId, true);
+}
+
+function toggleProjectRename(projectId, force) {
+  const card = document.querySelector(`[data-project-id="${projectId}"]`);
+  if (!card) return;
+  const view = card.querySelector('.js-title-view');
+  const input = card.querySelector('.js-title-input');
+  const on = typeof force === 'boolean' ? force : input.classList.contains('hidden');
+  if (on) {
+    view?.classList.add('hidden');
+    input?.classList.remove('hidden');
+    if (input) {
+      input.value = view?.textContent?.trim() || '';
+      input.focus();
+      try { input.select(); } catch (e) {}
     }
-    
-    updateProjectName(projectId, newName.trim());
-  });
+  } else {
+    input?.classList.add('hidden');
+    view?.classList.remove('hidden');
+  }
+}
+
+function handleProjectTitleKey(event, projectId) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    saveProjectRename(projectId);
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    cancelProjectRename(projectId);
+  }
+}
+
+function saveProjectRename(projectId) {
+  const card = document.querySelector(`[data-project-id=\"${projectId}\"]`);
+  if (!card) return;
+  const view = card.querySelector('.js-title-view');
+  const input = card.querySelector('.js-title-input');
+  const newName = (input?.value || '').trim();
+  if (!newName) {
+    showNotification('Error', 'Project name is required', 'error');
+    input?.focus();
+    return;
+  }
+  // Optimistic UI
+  if (view) view.textContent = newName;
+  toggleProjectRename(projectId, false);
+  updateProjectName(projectId, newName);
+}
+
+function cancelProjectRename(projectId) {
+  const card = document.querySelector(`[data-project-id=\"${projectId}\"]`);
+  if (!card) return;
+  const view = card.querySelector('.js-title-view');
+  const input = card.querySelector('.js-title-input');
+  if (input && view) input.value = view.textContent?.trim() || '';
+  toggleProjectRename(projectId, false);
 }
 
 function updateProjectName(projectId, newName) {
