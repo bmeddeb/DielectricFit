@@ -248,6 +248,7 @@ function renderProjects(projects) {
   
   const projectsHTML = projects.map(project => {
     const showDescription = !!(project.description && project.description !== 'Default project for your datasets');
+    const isDefault = project.name === 'Default';
     return `
     <div class="border border-gray-200 rounded-lg overflow-visible project-card" data-project-id="${project.id}">
       <!-- Project Header -->
