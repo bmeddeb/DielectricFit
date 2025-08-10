@@ -239,8 +239,15 @@ function renderProjects(projects) {
               </svg>
             </button>
             <div>
-              <div class="project-title flex items-center gap-1">
+              <div class="project-title group flex items-center gap-1">
                 <span class="js-title-view font-medium text-gray-900 text-sm" ondblclick="renameProjectInline('${project.id}')">${project.name}</span>
+                <button class="js-title-edit-btn opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-600 transition-opacity"
+                        title="Rename project"
+                        onclick="renameProjectInline('${project.id}')">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                  </svg>
+                </button>
                 <input class="js-title-input hidden px-1 py-0.5 text-sm border border-blue-300 rounded focus:outline-none focus:border-blue-500"
                        value="${project.name}"
                        onkeydown="handleProjectTitleKey(event, '${project.id}')"
@@ -488,9 +495,15 @@ function saveProjectRename(projectId) {
   const view = card.querySelector('.js-title-view');
   const input = card.querySelector('.js-title-input');
   const newName = (input?.value || '').trim();
+  const currentName = (view?.textContent || '').trim();
   if (!newName) {
     showNotification('Error', 'Project name is required', 'error');
     input?.focus();
+    return;
+  }
+  // If unchanged, just exit edit mode without a request
+  if (newName === currentName) {
+    toggleProjectRename(projectId, false);
     return;
   }
   // Optimistic UI
