@@ -105,13 +105,15 @@ function saveAccountInline() {
     email: document.getElementById('input-email')?.value || '',
     timezone: document.getElementById('input-timezone')?.value || ''
   };
+  // include phone in payload
+  data.phone = document.getElementById('input-phone')?.value || '';
 
   // Optimistic UI update
   document.getElementById('display-first-name').textContent = data.first_name || '-';
   document.getElementById('display-last-name').textContent = data.last_name || '-';
   document.getElementById('display-email').textContent = data.email || '';
-  const phone = document.getElementById('input-phone')?.value || 'Not provided';
-  document.getElementById('display-phone').textContent = phone || 'Not provided';
+  const phone = data.phone || 'Not provided';
+  document.getElementById('display-phone').textContent = phone;
   const tz = document.getElementById('input-timezone')?.value || 'UTC (GMT+0)';
   document.getElementById('display-timezone').textContent = tz;
 
