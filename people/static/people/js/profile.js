@@ -23,6 +23,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ensure initial state is view mode
     toggleAccountEdit(false);
   }
+
+  // Inline create project wiring
+  const inlineName = document.getElementById('inline-project-name');
+  const inlineAdd = document.getElementById('inline-project-add');
+  if (inlineAdd && inlineName) {
+    inlineAdd.addEventListener('click', () => createProjectInline());
+    inlineName.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        createProjectInline();
+      }
+    });
+  }
 });
 
 // Debounce function for search
@@ -344,9 +357,8 @@ function createNewProject() {
 }
 
 function createProjectWithDetails(projectName, projectDescription) {
-  
   const csrftoken = getCookie('csrftoken');
-  fetch('/api/projects/create/', {
+  return fetch('/api/projects/create/', {
     method: 'POST',
     headers: {
       'X-CSRFToken': csrftoken,
@@ -366,11 +378,35 @@ function createProjectWithDetails(projectName, projectDescription) {
     } else {
       showNotification('Error', data.error || 'Failed to create project', 'error');
     }
+    return data;
   })
   .catch(error => {
     console.error('Error creating project:', error);
     showNotification('Error', 'Failed to create project', 'error');
+    throw error;
   });
+}
+
+function createProjectInline() {
+  const input = document.getElementById('inline-project-name');
+  if (!input) return;
+  const name = (input.value || '').trim();
+  if (!name) {
+    showNotification('Error', 'Project name is required', 'error');
+    input.focus();
+    return;
+  }
+  createProjectWithDetails(name, '')
+    .then((res) => {
+      if (res && res.ok) {
+        input.value = '';
+        input.focus();
+      }
+    })
+    .catch(() => {
+      // Keep typed value for correction
+      input.focus();
+    });
 }
 
 function showProjectMenu(projectId, event) {
