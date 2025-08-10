@@ -13,6 +13,7 @@ urlpatterns = [
     # Profile API endpoints
     path('api/profile/update/', views.update_profile_api, name='api_update_profile'),
     path('api/profile/projects/', views.profile_projects_api, name='api_profile_projects'),
+    path('api/timezone/set/', views.set_timezone_api, name='api_set_timezone'),
     
     # Project API endpoints
     path('api/projects/', views.user_projects_api, name='api_user_projects'),

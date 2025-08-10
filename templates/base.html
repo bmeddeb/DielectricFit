@@ -127,6 +127,26 @@
       });
     })();
   </script>
+  <script>
+    // Client-side timezone detection: set session once per browser or when changed
+    (function() {
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (!tz) return;
+        const key = 'df_client_tz';
+        const prev = localStorage.getItem(key);
+        if (prev !== tz) {
+          function getCookie(name){const v=`; ${document.cookie}`.split(`; ${name}=`);if(v.length===2)return v.pop().split(';').shift()}
+          fetch('/api/timezone/set/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') || '' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ timezone: tz })
+          }).finally(() => { localStorage.setItem(key, tz); });
+        }
+      } catch(e) { /* ignore */ }
+    })();
+  </script>
 
   <!-- Delete Confirmation Modal -->
   <div x-data="{ open: false, datasetId: null, datasetName: '' }" 

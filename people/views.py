@@ -9,6 +9,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from django.utils.timezone import activate as tz_activate
 
 from .models import Project, ProjectMembership, UserProjectPreference, ProjectActivity, ProjectVisibility
 from .forms import CustomUserCreationForm
@@ -433,6 +434,23 @@ def update_profile_api(request: HttpRequest) -> JsonResponse:
                 return JsonResponse({"ok": False, "error": "Invalid email format"}, status=400)
         
         user.save()
+
+        # Persist timezone to profile if provided and valid
+        if 'timezone' in data and data['timezone']:
+            tzname = data['timezone']
+            try:
+                import zoneinfo
+                # validate
+                _ = zoneinfo.ZoneInfo(tzname)
+            except Exception:
+                return JsonResponse({"ok": False, "error": "Invalid timezone"}, status=400)
+            # ensure profile exists
+            from .models import UserProfile
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.timezone = tzname
+            profile.save(update_fields=["timezone", "updated_at"])
+            # also mirror into session so it's applied immediately this request
+            request.session['django_timezone'] = tzname
         
         # Handle additional profile fields (phone, timezone) if we have a profile model
         # For now, we'll just return success
@@ -447,6 +465,31 @@ def update_profile_api(request: HttpRequest) -> JsonResponse:
     except Exception as e:
         logger.error(f"Error updating profile: {e}")
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def set_timezone_api(request: HttpRequest) -> JsonResponse:
+    """Set session timezone from client detection; does not persist to profile.
+    Expected JSON: {"timezone": "America/New_York"}
+    """
+    import json
+    try:
+        data = json.loads(request.body or '{}')
+        tzname = (data.get('timezone') or '').strip()
+        if not tzname:
+            return JsonResponse({"ok": False, "error": "timezone required"}, status=400)
+        import zoneinfo
+        try:
+            _ = zoneinfo.ZoneInfo(tzname)
+        except Exception:
+            return JsonResponse({"ok": False, "error": "Invalid timezone"}, status=400)
+        request.session['django_timezone'] = tzname
+        # Also activate for current request so responses reflect it
+        tz_activate(tzname)
+        return JsonResponse({"ok": True})
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
 
 
 @login_required
