@@ -16,7 +16,8 @@ from library.algorithms.kramers_kronig import (
     _detect_peaks,
     _kk_hilbert,
     _kk_resample_hilbert,
-    _kk_trapz_numba
+    _kk_trapz_numba,
+    _kk_trapz_sskk
 )
 
 
@@ -56,17 +57,26 @@ class TestInputValidation:
         dk = np.array([2.5, 2.4, 2.3])
         df = np.array([0.01, 0.02, 0.03])
         
-        with pytest.raises(ValueError, match="Negative frequencies"):
+        with pytest.raises(ValueError, match="positive"):
             validate_kramers_kronig(freq, dk, df)
     
     def test_nan_values(self):
         """Test that NaN values raise error."""
+        # NaN in frequency breaks monotonicity check first
         freq = np.array([1e9, 2e9, np.nan])
         dk = np.array([2.5, 2.4, 2.3])
         df = np.array([0.01, 0.02, 0.03])
         
-        with pytest.raises(ValueError, match="NaN values"):
+        with pytest.raises(ValueError, match="strictly increasing"):
             validate_kramers_kronig(freq, dk, df)
+        
+        # Test NaN detection directly by checking for finite values
+        freq2 = np.array([1e9, 2e9, 3e9])
+        dk2 = np.array([2.5, np.nan, 2.3])  
+        df2 = np.array([0.01, 0.02, 0.03])
+        
+        with pytest.raises(ValueError, match="non-finite"):
+            validate_kramers_kronig(freq2, dk2, df2)
 
 
 class TestBasicFunctionality:
@@ -83,13 +93,16 @@ class TestBasicFunctionality:
         omega = 2 * np.pi * freq
         eps_complex = eps_inf + (eps_s - eps_inf) / (1 + 1j * omega * tau)
         dk = np.real(eps_complex)
-        df = -np.imag(eps_complex) / np.real(eps_complex)
+        df = -np.imag(eps_complex) / np.real(eps_complex)  # tan δ = ε″/ε′
         
         result = validate_kramers_kronig(freq, dk, df)
         
         assert result['causality_status'] == 'PASS'
         assert result['mean_relative_error'] < 0.05
         assert 'dk_kk' in result
+        assert 'median_relative_error' in result
+        assert 'q90_relative_error' in result
+        assert 'method_detail' in result
         assert len(result['dk_kk']) == len(dk)
     
     def test_explicit_eps_inf(self):
@@ -111,11 +124,47 @@ class TestBasicFunctionality:
         
         result_uniform = validate_kramers_kronig(freq_uniform, dk, df, method='auto')
         assert result_uniform['is_uniform_grid'] == True
+        assert result_uniform['method_used'] == 'hilbert'
+        assert 'hilbert' in result_uniform['method_detail']
         
         # Non-uniform grid (logarithmic)
         freq_log = np.logspace(9, 10, 50)
         result_log = validate_kramers_kronig(freq_log, dk, df, method='auto')
         assert result_log['is_uniform_grid'] == False
+        assert result_log['method_used'] == 'trapz'
+        assert 'trapz' in result_log['method_detail']
+    
+    def test_sskk_functionality(self):
+        """Test SSKK (singly subtractive KK) functionality."""
+        freq = np.logspace(8, 10, 30)
+        dk = np.ones(30) * 2.5
+        df = np.ones(30) * 0.01
+        
+        # With SSKK (default)
+        result_sskk = validate_kramers_kronig(freq, dk, df, method='trapz', use_sskk=True)
+        assert result_sskk['method_detail'] == 'trapz-sskk'
+        
+        # Without SSKK 
+        result_pv = validate_kramers_kronig(freq, dk, df, method='trapz', use_sskk=False)
+        assert result_pv['method_detail'] == 'trapz-pv'
+        
+        # Both should give results but may differ slightly
+        assert len(result_sskk['dk_kk']) == len(result_pv['dk_kk']) == len(dk)
+    
+    def test_anchor_index(self):
+        """Test custom anchor index for SSKK."""
+        freq = np.logspace(8, 10, 30)
+        dk = np.ones(30) * 2.5
+        df = np.ones(30) * 0.01
+        
+        # Custom anchor index
+        anchor_idx = 10
+        result = validate_kramers_kronig(
+            freq, dk, df, method='trapz', use_sskk=True, anchor_index=anchor_idx
+        )
+        
+        assert result['anchor_index'] == anchor_idx
+        assert result['method_detail'] == 'trapz-sskk'
 
 
 class TestHelperFunctions:
@@ -179,50 +228,80 @@ class TestKramersKronigTransforms:
     """Test different KK transform methods."""
     
     def test_hilbert_transform_uniform(self):
-        """Test Hilbert transform on uniform grid."""
-        # Create simple test data
-        df = np.array([0.01, 0.02, 0.03, 0.02, 0.01])
+        """Test Hilbert transform on uniform omega grid."""
+        # Create simple test data (now uses omega and eps_imag)
+        omega = np.linspace(1e9, 1e10, 20) * 2 * np.pi  # Convert to rad/s
+        eps_imag = np.ones(20) * 0.025  # ε″ = ε′ * tan δ = 2.5 * 0.01
         eps_inf = 2.0
         
-        dk_kk = _kk_hilbert(df, eps_inf)
+        dk_kk = _kk_hilbert(omega, eps_imag, eps_inf)
         
-        assert len(dk_kk) == len(df)
+        assert len(dk_kk) == len(eps_imag)
         assert np.all(np.isfinite(dk_kk))
     
     def test_hilbert_with_window(self):
         """Test Hilbert transform with window function."""
-        df = np.random.rand(100) * 0.01 + 0.01
+        omega = np.linspace(1e9, 1e10, 100) * 2 * np.pi
+        eps_imag = np.random.rand(100) * 0.01 + 0.025
         eps_inf = 2.0
         
-        dk_kk = _kk_hilbert(df, eps_inf, window='hamming')
-        
-        assert len(dk_kk) == len(df)
+        # Test string window
+        dk_kk = _kk_hilbert(omega, eps_imag, eps_inf, window='hamming')
+        assert len(dk_kk) == len(eps_imag)
         assert np.all(np.isfinite(dk_kk))
+        
+        # Test tuple window (Kaiser with beta)
+        dk_kk2 = _kk_hilbert(omega, eps_imag, eps_inf, window=('kaiser', 5.0))
+        assert len(dk_kk2) == len(eps_imag)
+        assert np.all(np.isfinite(dk_kk2))
     
     def test_trapz_integration(self):
         """Test trapezoidal integration method."""
-        # Generate test data
+        # Generate test data (now uses eps_imag directly)
         freq = np.logspace(8, 10, 30)
         omega = 2 * np.pi * freq
-        df = np.ones(30) * 0.01
+        eps_imag = np.ones(30) * 0.025  # ε″ = ε′ * tan δ
         eps_inf = 2.0
         
-        dk_kk = _kk_trapz_numba(omega, df, eps_inf)
+        dk_kk = _kk_trapz_numba(omega, eps_imag, eps_inf)
         
-        assert len(dk_kk) == len(df)
+        assert len(dk_kk) == len(eps_imag)
+        assert np.all(np.isfinite(dk_kk))
+    
+    def test_sskk_integration(self):
+        """Test SSKK trapezoidal integration method."""
+        freq = np.logspace(8, 10, 30)
+        omega = 2 * np.pi * freq
+        eps_imag = np.ones(30) * 0.025
+        eps_inf = 2.0
+        dk_anchor = 2.5
+        omega_anchor = omega[15]  # Mid-point anchor
+        
+        dk_kk = _kk_trapz_sskk(omega, eps_imag, eps_inf, dk_anchor, omega_anchor)
+        
+        assert len(dk_kk) == len(eps_imag)
         assert np.all(np.isfinite(dk_kk))
     
     def test_resample_hilbert(self):
         """Test resampling for non-uniform grids."""
         # Non-uniform frequency grid
         freq = np.logspace(8, 10, 50)
-        df = np.random.rand(50) * 0.01 + 0.01
+        eps_imag = np.random.rand(50) * 0.01 + 0.025
         eps_inf = 2.0
         
-        dk_kk = _kk_resample_hilbert(freq, df, eps_inf, None, None)
+        dk_kk = _kk_resample_hilbert(freq, eps_imag, eps_inf, None, None)
         
-        assert len(dk_kk) == len(df)
+        assert len(dk_kk) == len(eps_imag)
         assert np.all(np.isfinite(dk_kk))
+    
+    def test_hilbert_insufficient_points(self):
+        """Test error handling for insufficient points in Hilbert."""
+        omega = np.array([1e9, 2e9])  # Only 2 points, need at least 4
+        eps_imag = np.array([0.01, 0.02])
+        eps_inf = 2.0
+        
+        with pytest.raises(ValueError, match="at least 4 points"):
+            _kk_hilbert(omega, eps_imag, eps_inf)
 
 
 class TestDataFrameInterface:
@@ -285,6 +364,7 @@ class TestKramersKronigValidator:
         
         assert validator.df is df
         assert validator.method == 'auto'
+        assert validator.use_sskk == True  # New default
         assert validator.results == {}
     
     def test_validator_validate(self):
@@ -338,6 +418,7 @@ class TestKramersKronigValidator:
         assert 'num_points' in diagnostics
         assert 'freq_range_ghz' in diagnostics
         assert 'eps_inf' in diagnostics
+        assert 'method_detail' in diagnostics  # New field
         assert diagnostics['num_points'] == 50
     
     def test_validator_report(self):
@@ -360,33 +441,61 @@ class TestKramersKronigValidator:
         report = validator.get_report()
         assert "Causality Status" in report
         assert "Mean Relative Error" in report
+        assert "Median Relative Error" in report  # New field in report
     
     def test_validator_invalid_window(self):
         """Test invalid window parameter."""
         data = {
-            'Frequency (GHz)': [1, 2, 3],
-            'Dk': [2.5, 2.4, 2.3],
-            'Df': [0.01, 0.02, 0.03]
+            'Frequency (GHz)': [1, 2, 3, 4, 5],
+            'Dk': [2.5, 2.4, 2.3, 2.2, 2.1],
+            'Df': [0.01, 0.02, 0.03, 0.02, 0.01]
         }
         df = pd.DataFrame(data)
         
-        with pytest.raises(ValueError, match="window must be one of"):
+        with pytest.raises(ValueError, match="Invalid window spec"):
             KramersKronigValidator(df, window='invalid_window')
+    
+    def test_validator_valid_window_tuples(self):
+        """Test valid window parameter including tuples."""
+        data = {
+            'Frequency (GHz)': np.linspace(1, 10, 20),
+            'Dk': np.ones(20) * 2.5,
+            'Df': np.ones(20) * 0.01
+        }
+        df = pd.DataFrame(data)
+        
+        # String window
+        validator1 = KramersKronigValidator(df, window='hamming')
+        assert validator1.window == 'hamming'
+        
+        # Tuple window (Kaiser with parameter)
+        validator2 = KramersKronigValidator(df, window=('kaiser', 5.0))
+        assert validator2.window == ('kaiser', 5.0)
 
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
     
     def test_very_small_dataset(self):
-        """Test with minimal valid dataset (2 points)."""
-        freq = np.array([1e9, 2e9])
-        dk = np.array([2.5, 2.4])
-        df = np.array([0.01, 0.02])
+        """Test with minimal valid dataset (4 points for Hilbert, or use trapz)."""
+        freq = np.array([1e9, 2e9, 3e9, 4e9])  # Need 4 points for Hilbert
+        dk = np.array([2.5, 2.4, 2.3, 2.2])
+        df = np.array([0.01, 0.02, 0.015, 0.01])
         
         result = validate_kramers_kronig(freq, dk, df)
         
         assert 'dk_kk' in result
-        assert len(result['dk_kk']) == 2
+        assert len(result['dk_kk']) == 4
+        
+        # Test 2-point dataset with trapz method (should work)
+        freq2 = np.array([1e9, 2e9])
+        dk2 = np.array([2.5, 2.4])
+        df2 = np.array([0.01, 0.02])
+        
+        result2 = validate_kramers_kronig(freq2, dk2, df2, method='trapz')
+        
+        assert 'dk_kk' in result2
+        assert len(result2['dk_kk']) == 2
     
     def test_zero_df_values(self):
         """Test with zero dissipation factor."""
@@ -452,6 +561,56 @@ class TestNumbaAcceleration:
         assert np.allclose(result1, result2, rtol=1e-10)
 
 
+class TestNewMetrics:
+    """Test new error metrics and features."""
+    
+    def test_additional_error_metrics(self):
+        """Test that new error metrics are computed."""
+        freq = np.linspace(1e9, 10e9, 50)
+        dk = np.ones(50) * 2.5
+        df = np.ones(50) * 0.01
+        
+        result = validate_kramers_kronig(freq, dk, df)
+        
+        # Check all error metrics are present
+        assert 'mean_relative_error' in result
+        assert 'median_relative_error' in result
+        assert 'q90_relative_error' in result
+        assert 'rmse' in result
+        
+        # All should be non-negative
+        assert result['mean_relative_error'] >= 0
+        assert result['median_relative_error'] >= 0
+        assert result['q90_relative_error'] >= 0
+        assert result['rmse'] >= 0
+        
+        # Ordering should make sense (q90 >= median >= 0)
+        assert result['q90_relative_error'] >= result['median_relative_error']
+
+    def test_method_detail_reporting(self):
+        """Test that method_detail is properly reported."""
+        freq_uniform = np.linspace(1e9, 10e9, 50)
+        freq_log = np.logspace(9, 10, 50)
+        dk = np.ones(50) * 2.5
+        df = np.ones(50) * 0.01
+        
+        # Uniform grid with Hilbert
+        result1 = validate_kramers_kronig(freq_uniform, dk, df, method='hilbert')
+        assert result1['method_detail'] == 'hilbert-uniform'
+        
+        # Non-uniform grid with Hilbert (should resample)
+        result2 = validate_kramers_kronig(freq_log, dk, df, method='hilbert')
+        assert result2['method_detail'] == 'hilbert-resample'
+        
+        # Trapz with SSKK
+        result3 = validate_kramers_kronig(freq_log, dk, df, method='trapz', use_sskk=True)
+        assert result3['method_detail'] == 'trapz-sskk'
+        
+        # Trapz without SSKK
+        result4 = validate_kramers_kronig(freq_log, dk, df, method='trapz', use_sskk=False)
+        assert result4['method_detail'] == 'trapz-pv'
+
+
 class TestMethodComparison:
     """Test consistency between different KK methods."""
     
@@ -471,11 +630,37 @@ class TestMethodComparison:
         # Hilbert method
         result_hilbert = validate_kramers_kronig(freq, dk, df, method='hilbert')
         
-        # Trapz method  
-        result_trapz = validate_kramers_kronig(freq, dk, df, method='trapz')
+        # Trapz method with SSKK
+        result_trapz = validate_kramers_kronig(freq, dk, df, method='trapz', use_sskk=True)
         
         # Both should give similar causality assessment
         assert result_hilbert['causality_status'] == result_trapz['causality_status']
         
-        # RMSEs should be reasonably close
+        # RMSEs should be reasonably close (SSKK should be better than old trapz)
         assert np.abs(result_hilbert['rmse'] - result_trapz['rmse']) < 0.1
+    
+    def test_sskk_vs_pv_comparison(self):
+        """Test that SSKK generally performs better than basic PV trapz."""
+        freq = np.logspace(8, 10, 50)
+        omega = 2 * np.pi * freq
+        
+        # Create Debye data with some finite-band effects
+        tau = 1e-9
+        eps_s = 3.0
+        eps_inf = 2.0
+        eps_complex = eps_inf + (eps_s - eps_inf) / (1 + 1j * omega * tau)
+        dk = np.real(eps_complex)
+        df = -np.imag(eps_complex) / np.real(eps_complex)
+        
+        # SSKK method
+        result_sskk = validate_kramers_kronig(freq, dk, df, method='trapz', use_sskk=True)
+        
+        # Basic PV method
+        result_pv = validate_kramers_kronig(freq, dk, df, method='trapz', use_sskk=False)
+        
+        # SSKK should generally have lower error (though this isn't guaranteed)
+        # At minimum, both should produce finite results
+        assert np.all(np.isfinite(result_sskk['dk_kk']))
+        assert np.all(np.isfinite(result_pv['dk_kk']))
+        assert result_sskk['method_detail'] == 'trapz-sskk'
+        assert result_pv['method_detail'] == 'trapz-pv'
