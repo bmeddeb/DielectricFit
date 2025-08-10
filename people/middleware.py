@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.utils import timezone
+import zoneinfo
 
 
 class UserTimezoneMiddleware:
@@ -14,16 +15,27 @@ class UserTimezoneMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # If authenticated and profile has a timezone, ensure it is in the session
+        # Determine desired timezone: user profile first, then session, else None
+        tzname = None
         user = getattr(request, 'user', None)
         if user and user.is_authenticated:
             profile = getattr(user, 'profile', None)
             if profile and profile.timezone:
-                # Only set if missing or different
-                if request.session.get('django_timezone') != profile.timezone:
-                    request.session['django_timezone'] = profile.timezone
+                tzname = profile.timezone
+                # Keep session in sync for client-side use
+                if request.session.get('django_timezone') != tzname:
+                    request.session['django_timezone'] = tzname
+        if not tzname:
+            tzname = request.session.get('django_timezone')
 
-        # Hand off to the next middleware; django TimeZoneMiddleware will activate
+        # Activate/deactivate timezone for this request
+        if tzname:
+            try:
+                timezone.activate(zoneinfo.ZoneInfo(tzname))
+            except Exception:
+                timezone.deactivate()
+        else:
+            timezone.deactivate()
+
         response = self.get_response(request)
         return response
-

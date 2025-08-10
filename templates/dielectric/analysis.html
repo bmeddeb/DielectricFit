@@ -47,11 +47,15 @@
           <div class="space-y-4">
             <div>
               <label class="text-sm font-medium text-primary">Smoothing</label>
-              <select class="w-full mt-1 p-2 border border-slate-200 rounded-lg">
-                <option>Savitzky-Golay</option>
-                <option>Moving Average</option>
-                <option>None</option>
-              </select>
+              <div class="mt-1">
+                {% include 'components/select_dropdown.html' with 
+                  input_id='smoothing'
+                  name='smoothing'
+                  items_json='["Savitzky-Golay","Moving Average","None"]'
+                  initial='Savitzky-Golay'
+                  placeholder='Choose method'
+                %}
+              </div>
             </div>
             <div>
               <label class="text-sm font-medium text-primary">Baseline Correction</label>
