@@ -225,25 +225,27 @@ function renderProjects(projects) {
     return;
   }
   
-  const projectsHTML = projects.map(project => `
+  const projectsHTML = projects.map(project => {
+    const showDescription = !!(project.description && project.description !== 'Default project for your datasets');
+    return `
     <div class="border border-gray-200 rounded-lg overflow-hidden project-card" data-project-id="${project.id}">
       <!-- Project Header -->
-      <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+      <div class="thin-header">
         <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-3">
+          <div class="flex items-center space-x-2">
             <button onclick="toggleProject('${project.id}')" class="text-gray-400 hover:text-gray-600">
               <svg class="w-4 h-4 project-toggle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
               </svg>
             </button>
             <div>
-              <h3 class="font-medium text-gray-900">${project.name}</h3>
-              ${project.description ? `<p class="text-sm text-gray-500">${project.description}</p>` : ''}
+              <h3 class="font-medium text-gray-900 text-sm">${project.name}</h3>
+              ${showDescription ? `<p class=\"text-xs text-gray-500\">${project.description}</p>` : ''}
             </div>
-            ${project.is_active ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Active</span>' : ''}
+            ${project.is_active ? '<span class="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] rounded-full">Active</span>' : ''}
           </div>
           <div class="flex items-center space-x-2">
-            <span class="text-sm text-gray-500">${project.dataset_count} datasets</span>
+            <span class="text-xs text-gray-500">${project.dataset_count} datasets</span>
             <div class="relative">
               <button onclick="showProjectMenu('${project.id}', event)" class="p-1 text-gray-400 hover:text-gray-600">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -269,7 +271,8 @@ function renderProjects(projects) {
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   
   projectsList.innerHTML = projectsHTML;
 }
