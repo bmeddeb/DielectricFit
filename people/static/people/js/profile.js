@@ -240,14 +240,15 @@ function renderProjects(projects) {
             </button>
             <div>
               <div class="project-title group flex items-center gap-1">
-                <span class="js-title-view font-medium text-gray-900 text-sm" ondblclick="renameProjectInline('${project.id}')">${project.name}</span>
+                <span class="js-title-view font-medium text-gray-900 text-sm" ${isDefault ? 'title="Default project cannot be renamed"' : 'ondblclick="renameProjectInline(\'' + project.id + '\')"'}>${project.name}</span>
+                ${isDefault ? '' : `
                 <button class="js-title-edit-btn opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-600 transition-opacity"
                         title="Rename project"
                         onclick="renameProjectInline('${project.id}')">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                   </svg>
-                </button>
+                </button>`}
                 <input class="js-title-input hidden px-1 py-0.5 text-sm border border-blue-300 rounded focus:outline-none focus:border-blue-500"
                        value="${project.name}"
                        onkeydown="handleProjectTitleKey(event, '${project.id}')"
@@ -266,7 +267,7 @@ function renderProjects(projects) {
                 </svg>
               </button>
               <div id="project-menu-${project.id}" class="hidden absolute right-0 z-20 mt-1 w-44 bg-white border border-gray-200 rounded-md shadow-lg">
-                <button class="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50" onclick="renameProject('${project.id}')">Rename</button>
+                ${isDefault ? '<button class="w-full px-3 py-1.5 text-left text-sm text-gray-400 cursor-not-allowed" disabled>Rename</button>' : `<button class=\"w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50\" onclick=\"renameProject(\'${project.id}\')\">Rename</button>`}
                 <button class="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50" onclick="archiveProject('${project.id}')">Archive</button>
                 <button class="w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50" onclick="confirmDeleteProject('${project.id}')">Delete</button>
               </div>
