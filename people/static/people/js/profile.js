@@ -74,6 +74,15 @@ function handleAccountUpdate(event) {
   document.getElementById('display-email').textContent = data.email;
   document.getElementById('display-phone').textContent = data.phone || 'Not provided';
   document.getElementById('display-timezone').textContent = data.timezone;
+  // Update summary header
+  try {
+    const uname = (document.getElementById('summary-username')?.textContent || '').replace(/^@/, '');
+    const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim() || uname;
+    const summaryName = document.getElementById('summary-name');
+    const summaryEmail = document.getElementById('summary-email');
+    if (summaryName) summaryName.textContent = fullName;
+    if (summaryEmail) summaryEmail.textContent = data.email || '';
+  } catch (_) {}
   
   // Send to server
   const csrftoken = getCookie('csrftoken');
@@ -129,6 +138,15 @@ function saveAccountInline() {
   document.getElementById('display-phone').textContent = phone;
   const tz = document.getElementById('input-timezone')?.value || 'UTC (GMT+0)';
   document.getElementById('display-timezone').textContent = tz;
+  // Update summary header
+  try {
+    const uname = (document.getElementById('summary-username')?.textContent || '').replace(/^@/, '');
+    const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim() || uname;
+    const summaryName = document.getElementById('summary-name');
+    const summaryEmail = document.getElementById('summary-email');
+    if (summaryName) summaryName.textContent = fullName;
+    if (summaryEmail) summaryEmail.textContent = data.email || '';
+  } catch (_) {}
 
   const csrftoken = getCookie('csrftoken');
   fetch('/api/profile/update/', {
