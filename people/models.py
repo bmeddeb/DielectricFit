@@ -345,6 +345,8 @@ class UserProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="profile"
     )
+    # Use FileField to avoid hard Pillow dependency; can switch to ImageField later
+    avatar = models.FileField(upload_to='avatars/', null=True, blank=True)
     phone = models.CharField(max_length=20, blank=True, default="")
     timezone = models.CharField(max_length=50, default="UTC")
     bio = models.TextField(blank=True, default="")

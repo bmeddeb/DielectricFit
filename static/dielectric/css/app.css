@@ -101,3 +101,15 @@ body {
   #sidebar-header:hover #logo-icon,
   #sidebar-header:hover .logo-text { opacity: 0; }
 }
+
+/* Reusable compact header/footer bars */
+.thin-header {
+  padding: 0.125rem 0.5rem; /* py-0.5 px-2 */
+  background-color: #f9fafb; /* gray-50 */
+  border-bottom: 1px solid #e5e7eb; /* gray-200 */
+}
+.thin-footer {
+  padding: 0.125rem 0.5rem; /* py-0.5 px-2 */
+  background-color: #f9fafb; /* gray-50 */
+  border-top: 1px solid #e5e7eb; /* gray-200 */
+}

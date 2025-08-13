@@ -98,7 +98,7 @@
         {% for dataset in datasets|slice:":12" %}
       <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden group" data-dataset-id="{{ dataset.id }}">
         <!-- Card Header -->
-        <div class="bg-gray-50 px-3 py-1.5 border-b border-gray-200">
+        <div class="thin-header">
           <div class="flex justify-between items-center">
             <div class="flex items-center flex-1 min-w-0">
               <h3 class="font-medium text-sm text-primary truncate editable-title mr-1" 
@@ -131,7 +131,7 @@
         </div>
         
         <!-- Card Footer -->
-        <div class="px-3 py-1.5 border-t border-gray-200 bg-gray-50">
+        <div class="thin-footer">
           <div class="flex justify-between items-center">
             <p class="text-xs text-secondary">{{ dataset.created_at|date:"m/d H:i" }}</p>
             <div class="flex gap-2">

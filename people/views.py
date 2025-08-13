@@ -385,7 +385,13 @@ def update_project_api(request: HttpRequest, project_id) -> JsonResponse:
         
         # Update fields
         if 'name' in data:
-            project.name = data['name'].strip()
+            new_name = data['name'].strip()
+            # Prevent renaming the default project
+            if project.name == "Default" and new_name != project.name:
+                return JsonResponse({"ok": False, "error": "Cannot rename the default project"}, status=400)
+            if not new_name:
+                return JsonResponse({"ok": False, "error": "Project name is required"}, status=400)
+            project.name = new_name
         if 'description' in data:
             project.description = data['description'].strip()
         if 'visibility' in data and data['visibility'] in ['private', 'internal', 'public']:

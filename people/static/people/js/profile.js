@@ -23,6 +23,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ensure initial state is view mode
     toggleAccountEdit(false);
   }
+
+  // Inline create project wiring
+  const inlineName = document.getElementById('inline-project-name');
+  const inlineAdd = document.getElementById('inline-project-add');
+  if (inlineAdd && inlineName) {
+    inlineAdd.addEventListener('click', () => createProjectInline());
+    inlineName.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        createProjectInline();
+      }
+    });
+  }
 });
 
 // Debounce function for search
@@ -61,6 +74,15 @@ function handleAccountUpdate(event) {
   document.getElementById('display-email').textContent = data.email;
   document.getElementById('display-phone').textContent = data.phone || 'Not provided';
   document.getElementById('display-timezone').textContent = data.timezone;
+  // Update summary header
+  try {
+    const uname = (document.getElementById('summary-username')?.textContent || '').replace(/^@/, '');
+    const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim() || uname;
+    const summaryName = document.getElementById('summary-name');
+    const summaryEmail = document.getElementById('summary-email');
+    if (summaryName) summaryName.textContent = fullName;
+    if (summaryEmail) summaryEmail.textContent = data.email || '';
+  } catch (_) {}
   
   // Send to server
   const csrftoken = getCookie('csrftoken');
@@ -116,6 +138,15 @@ function saveAccountInline() {
   document.getElementById('display-phone').textContent = phone;
   const tz = document.getElementById('input-timezone')?.value || 'UTC (GMT+0)';
   document.getElementById('display-timezone').textContent = tz;
+  // Update summary header
+  try {
+    const uname = (document.getElementById('summary-username')?.textContent || '').replace(/^@/, '');
+    const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim() || uname;
+    const summaryName = document.getElementById('summary-name');
+    const summaryEmail = document.getElementById('summary-email');
+    if (summaryName) summaryName.textContent = fullName;
+    if (summaryEmail) summaryEmail.textContent = data.email || '';
+  } catch (_) {}
 
   const csrftoken = getCookie('csrftoken');
   fetch('/api/profile/update/', {
@@ -149,41 +180,62 @@ function loadProjects() {
   
   fetch('/api/profile/projects/', {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Accept': 'application/json' },
     credentials: 'same-origin'
   })
-  .then(response => response.json())
+  .then(async (response) => {
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
+    }
+    return response.json();
+  })
   .then(data => {
-    if (data.ok) {
-      renderProjects(data.projects);
+    if (data && data.ok) {
+      renderProjects(data.projects || []);
     } else {
-      projectsList.innerHTML = `
-        <div class="flex items-center justify-center py-8">
-          <div class="text-center">
-            <svg class="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <p class="mt-2 text-sm text-red-500">${data.error || 'Failed to load projects'}</p>
-          </div>
-        </div>
-      `;
+      const msg = data && data.error ? data.error : 'Failed to load projects';
+      projectsList.innerHTML = errorBox(msg);
     }
   })
   .catch(error => {
     console.error('Error loading projects:', error);
-    projectsList.innerHTML = `
+    // Fallback: try simpler endpoint without datasets to avoid blank UI
+    fetch('/api/projects/', { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(data => {
+        if (data && data.ok && Array.isArray(data.projects)) {
+          // Map to expected structure, with empty datasets
+          const mapped = data.projects.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            visibility: p.visibility,
+            created_at: p.last_activity || '',
+            dataset_count: p.dataset_count,
+            member_count: p.member_count,
+            is_active: !!p.is_active,
+            datasets: []
+          }));
+          renderProjects(mapped);
+        } else {
+          projectsList.innerHTML = errorBox('Failed to load projects');
+        }
+      })
+      .catch(() => { projectsList.innerHTML = errorBox('Failed to load projects'); });
+  });
+
+  function errorBox(message) {
+    return `
       <div class="flex items-center justify-center py-8">
         <div class="text-center">
           <svg class="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <p class="mt-2 text-sm text-red-500">Failed to load projects</p>
+          <p class="mt-2 text-sm text-red-500">${message}</p>
         </div>
-      </div>
-    `;
-  });
+      </div>`;
+  }
 }
 
 function renderProjects(projects) {
@@ -212,31 +264,53 @@ function renderProjects(projects) {
     return;
   }
   
-  const projectsHTML = projects.map(project => `
-    <div class="border border-gray-200 rounded-lg overflow-hidden project-card" data-project-id="${project.id}">
+  const projectsHTML = projects.map(project => {
+    const showDescription = !!(project.description && project.description !== 'Default project for your datasets');
+    const isDefault = project.name === 'Default';
+    return `
+    <div class="border border-gray-200 rounded-lg overflow-visible project-card" data-project-id="${project.id}">
       <!-- Project Header -->
-      <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+      <div class="thin-header">
         <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-3">
+          <div class="flex items-center space-x-2">
             <button onclick="toggleProject('${project.id}')" class="text-gray-400 hover:text-gray-600">
               <svg class="w-4 h-4 project-toggle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
               </svg>
             </button>
             <div>
-              <h3 class="font-medium text-gray-900">${project.name}</h3>
-              ${project.description ? `<p class="text-sm text-gray-500">${project.description}</p>` : ''}
+              <div class="project-title group flex items-center gap-1">
+                <span class="js-title-view font-medium text-gray-900 text-sm" ${isDefault ? 'title="Default project cannot be renamed"' : 'ondblclick="renameProjectInline(\'' + project.id + '\')"'}>${project.name}</span>
+                ${isDefault ? '' : `
+                <button class="js-title-edit-btn opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-600 transition-opacity"
+                        title="Rename project"
+                        onclick="renameProjectInline('${project.id}')">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                  </svg>
+                </button>`}
+                <input class="js-title-input hidden px-1 py-0.5 text-sm border border-blue-300 rounded focus:outline-none focus:border-blue-500"
+                       value="${project.name}"
+                       onkeydown="handleProjectTitleKey(event, '${project.id}')"
+                       onblur="cancelProjectRename('${project.id}')">
+              </div>
+              ${showDescription ? `<p class=\"text-xs text-gray-500\">${project.description}</p>` : ''}
             </div>
-            ${project.is_active ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Active</span>' : ''}
+            ${project.is_active ? '<span class="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] rounded-full">Active</span>' : ''}
           </div>
           <div class="flex items-center space-x-2">
-            <span class="text-sm text-gray-500">${project.dataset_count} datasets</span>
+            <span class="text-xs text-gray-500">${project.dataset_count} datasets</span>
             <div class="relative">
-              <button onclick="showProjectMenu('${project.id}', event)" class="p-1 text-gray-400 hover:text-gray-600">
+              <button onclick="toggleProjectMenu('${project.id}', event)" class="p-1 rounded hover:bg-gray-100 text-gray-500" aria-haspopup="true" aria-expanded="false" title="Project actions">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
                 </svg>
               </button>
+              <div id="project-menu-${project.id}" class="hidden absolute right-0 z-20 mt-1 w-44 bg-white border border-gray-200 rounded-md shadow-lg">
+                ${isDefault ? '<button class="w-full px-3 py-1.5 text-left text-sm text-gray-400 cursor-not-allowed" disabled>Rename</button>' : `<button class=\"w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50\" onclick=\"renameProject(\'${project.id}\')\">Rename</button>`}
+                <button class="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50" onclick="archiveProject('${project.id}')">Archive</button>
+                <button class="w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50" onclick="confirmDeleteProject('${project.id}')">Delete</button>
+              </div>
             </div>
           </div>
         </div>
@@ -256,7 +330,8 @@ function renderProjects(projects) {
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   
   projectsList.innerHTML = projectsHTML;
 }
@@ -344,9 +419,8 @@ function createNewProject() {
 }
 
 function createProjectWithDetails(projectName, projectDescription) {
-  
   const csrftoken = getCookie('csrftoken');
-  fetch('/api/projects/create/', {
+  return fetch('/api/projects/create/', {
     method: 'POST',
     headers: {
       'X-CSRFToken': csrftoken,
@@ -366,11 +440,35 @@ function createProjectWithDetails(projectName, projectDescription) {
     } else {
       showNotification('Error', data.error || 'Failed to create project', 'error');
     }
+    return data;
   })
   .catch(error => {
     console.error('Error creating project:', error);
     showNotification('Error', 'Failed to create project', 'error');
+    throw error;
   });
+}
+
+function createProjectInline() {
+  const input = document.getElementById('inline-project-name');
+  if (!input) return;
+  const name = (input.value || '').trim();
+  if (!name) {
+    showNotification('Error', 'Project name is required', 'error');
+    input.focus();
+    return;
+  }
+  createProjectWithDetails(name, '')
+    .then((res) => {
+      if (res && res.ok) {
+        input.value = '';
+        input.focus();
+      }
+    })
+    .catch(() => {
+      // Keep typed value for correction
+      input.focus();
+    });
 }
 
 function showProjectMenu(projectId, event) {
@@ -394,14 +492,81 @@ function showProjectMenu(projectId, event) {
 }
 
 function renameProject(projectId) {
-  showConfirmModal('Enter new project name:', (newName) => {
-    if (!newName.trim()) {
-      showNotification('Error', 'Project name is required', 'error');
-      return;
+  hideAllProjectMenus();
+  renameProjectInline(projectId);
+}
+
+function renameProjectInline(projectId) {
+  const card = document.querySelector(`[data-project-id="${projectId}"]`);
+  const title = card?.querySelector('.js-title-view')?.textContent?.trim();
+  if (title === 'Default') {
+    // Front-end guard: prevent editing Default project
+    showNotification('Info', 'Default project cannot be renamed', 'info');
+    return;
+  }
+  toggleProjectRename(projectId, true);
+}
+
+function toggleProjectRename(projectId, force) {
+  const card = document.querySelector(`[data-project-id="${projectId}"]`);
+  if (!card) return;
+  const view = card.querySelector('.js-title-view');
+  const input = card.querySelector('.js-title-input');
+  const on = typeof force === 'boolean' ? force : input.classList.contains('hidden');
+  if (on) {
+    view?.classList.add('hidden');
+    input?.classList.remove('hidden');
+    if (input) {
+      input.value = view?.textContent?.trim() || '';
+      input.focus();
+      try { input.select(); } catch (e) {}
     }
-    
-    updateProjectName(projectId, newName.trim());
-  });
+  } else {
+    input?.classList.add('hidden');
+    view?.classList.remove('hidden');
+  }
+}
+
+function handleProjectTitleKey(event, projectId) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    saveProjectRename(projectId);
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    cancelProjectRename(projectId);
+  }
+}
+
+function saveProjectRename(projectId) {
+  const card = document.querySelector(`[data-project-id=\"${projectId}\"]`);
+  if (!card) return;
+  const view = card.querySelector('.js-title-view');
+  const input = card.querySelector('.js-title-input');
+  const newName = (input?.value || '').trim();
+  const currentName = (view?.textContent || '').trim();
+  if (!newName) {
+    showNotification('Error', 'Project name is required', 'error');
+    input?.focus();
+    return;
+  }
+  // If unchanged, just exit edit mode without a request
+  if (newName === currentName) {
+    toggleProjectRename(projectId, false);
+    return;
+  }
+  // Optimistic UI
+  if (view) view.textContent = newName;
+  toggleProjectRename(projectId, false);
+  updateProjectName(projectId, newName);
+}
+
+function cancelProjectRename(projectId) {
+  const card = document.querySelector(`[data-project-id=\"${projectId}\"]`);
+  if (!card) return;
+  const view = card.querySelector('.js-title-view');
+  const input = card.querySelector('.js-title-input');
+  if (input && view) input.value = view.textContent?.trim() || '';
+  toggleProjectRename(projectId, false);
 }
 
 function updateProjectName(projectId, newName) {
@@ -431,10 +596,12 @@ function updateProjectName(projectId, newName) {
 }
 
 function archiveProject(projectId) {
+  hideAllProjectMenus();
   showNotification('Info', 'Archive functionality coming soon', 'info');
 }
 
 function confirmDeleteProject(projectId) {
+  hideAllProjectMenus();
   showConfirmModal(
     'Are you sure you want to delete this project? This will also delete all datasets in the project. This action cannot be undone.',
     () => { deleteProject(projectId); },
@@ -442,6 +609,27 @@ function confirmDeleteProject(projectId) {
     { dangerous: true }
   );
 }
+
+// Project action menu helpers
+function toggleProjectMenu(projectId, event) {
+  event?.stopPropagation();
+  const menu = document.getElementById(`project-menu-${projectId}`);
+  if (!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  hideAllProjectMenus();
+  if (isHidden) menu.classList.remove('hidden');
+}
+
+function hideAllProjectMenus() {
+  document.querySelectorAll('[id^="project-menu-"]').forEach(el => el.classList.add('hidden'));
+}
+
+document.addEventListener('click', (e) => {
+  // Close menus when clicking outside
+  if (!e.target.closest('[id^="project-menu-"]') && !e.target.closest('[onclick^="toggleProjectMenu("]')) {
+    hideAllProjectMenus();
+  }
+});
 
 function deleteProject(projectId) {
   const csrftoken = getCookie('csrftoken');
